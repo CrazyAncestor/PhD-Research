@@ -1,3 +1,5 @@
+%   The equations of motion were referred to Solid State Physics,
+%   by Ashcroft/Mermin 1st ed., equation (12.1).
 global e
 global m
 global hbar
@@ -20,12 +22,12 @@ E0 = 0 * Tesla * light_speed/3.4;
 B0 = 5 * Tesla;
 Em = 2e0 * Tesla * light_speed/3.4;
 Bm = 2e0 * Tesla;
-omega = 10*2*pi; % Unit THz
+omega = 100*2*pi; % Unit THz
 
 k0 = [0,G_GaAs*5e-5];
 
 fc = e*B0/m/2/pi
-CR_motion([E0,B0,Em,Bm,omega],k0,50/fc,1e-3)
+CR_motion([E0,B0,Em,Bm,omega],k0,1/fc,1e-3)
 
 function CR_motion(field,k0,tf,dt)
     global E0
@@ -118,8 +120,8 @@ function EB = EB_field(t)
     global omega
     
     N = length(t);
-    E = E0*ones(1,N) + Em*sin(omega*t)+ Em*sin(0.318*t*2*pi);
-    B = B0*ones(1,N) + Bm*sin(omega*t)+ Bm*sin(0.318*t*2*pi);
+    E = E0*ones(1,N) + Em*sin(omega*t);
+    B = B0*ones(1,N) + Bm*sin(omega*t);
 
     EB = [E;B];
 end
