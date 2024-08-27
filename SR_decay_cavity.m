@@ -45,14 +45,65 @@ legend('Tamm reflection')
 
 xlabel('Frequency(THz)')
 ylabel('Reflection')
-Q = Quality_factor_reflection(w,[One_THz*0.8,One_THz*1.2],abs(reflections_Tamm).^2)
-Q = Quality_factor_energy(field_1THz,One_THz)
+
+%   Quality factor
+Q_ref = Quality_factor_reflection(w,[One_THz*0.8,One_THz*1.2],abs(reflections_Tamm).^2)
+Q_eng = Quality_factor_energy(field_1THz,One_THz)
+
+%   Coupling strength
+h = 6.63e-34/2/pi;
+w = 1e12*2*pi;
+hw = h*w;
+ne = 1.9e11 / (1e-2)^2;
+m = 9.11e-31*0.07;
+epsilon = 8.85e-12;
+c = 3e8;
+e = 1.6e-19;
+
+%   Cavity mode coupling strength
+g = coupling_strength(hw,field_1THz,ne,m,e,epsilon)
+g_SR = e^2 * ne / m / epsilon / (1+3.8)/ c
+Gamma_A = 1e12/Q_ref
+Gamma_B = 1/(150e-12)
+wc = 1e12*2*pi;
+wk = 1e12*2*pi;
+rs = [];
+w = 2*pi* linspace(0.8,1.2,1001) *1e12; % Angular frequencies
+
+for i=1:length(w)
+    rate_SP = Spontaneous_decay_rate(w(i),wk,wc,g,Gamma_A,Gamma_B);
+    rs = [rs,abs(rate_SP)^2];
+end
+figure
+plot(w/2/pi,rs);
+dw = w(2)-w(1);
+Cavity_SP_rate = sum(rs)*dw
+Fermi_golden_rule_rate = pi * g^2 * Gamma_A/(g^2 + Gamma_A^2)/ pi
+
+
+
     %   Functions
 %       Physics calculation functions
 %   Transfer matrix formula (Macleod, H. A. (Hugh A. (2001). Thin-film optical filters / H.A. Macleod. (Third edition.). Institute of Physics Pub.)
 function M = transfer_matrix(k,d,n)
     delta = k*n*d;
     M = [cos(delta),sin(delta)/n*1i;sin(delta)*n*1i,cos(delta)];
+end
+
+function G = System_Matrix(w,wk,wc,g,Ga,Gb)
+    U11 = wk-1i*Ga-w;
+    U12 = 1i*g;
+    U21 = -1i*g;
+    U22 = wc-1i*Gb-w;
+    U = [U11,U12;U21,U22];
+    G = inv(U);
+end
+
+function rate_SP = Spontaneous_decay_rate(w,wk,wc,g,Ga,Gb)
+    G = System_Matrix(w,wk,wc,g,Ga,Gb);
+    ga = Ga/sqrt(pi);
+    gb = Gb/sqrt(pi);
+    rate_SP = 2i*ga/gb*Gb*G(1,2);
 end
 
 %   Electric field amplitude spatial enhancement for multilayer structure
@@ -326,12 +377,44 @@ function Q = Quality_factor_energy(field,w0)
             dx = x(i) - x(i-1);
         end
         eps = refractive_idx(i)^2;
-        energy_field = energy_field + eps*abs(E(i))^2*dx;
+        energy_field = energy_field + 0.5*(eps*real(E(i))^2 + real(H(i))^2)*dx;
     end
     S1 = real(E(1)*H(1));
     S2 = real(E(N)*H(N));
 
-    Q = energy_field/S1*w0;
+    Q = energy_field/(S1+S2)*w0;
+end
+
+function field_norm = normalizefield(field)
+    x = field(1,:); refractive_idx = field(2,:); E = field(3,:); H = field(4,:);
+    energy_field = 0;
+    N = length(x);
+
+    for i=1:N
+        if i ==1
+            dx = x(2) - x(1);
+        else
+            dx = x(i) - x(i-1);
+        end
+        eps = refractive_idx(i)^2;
+        energy_field = energy_field + eps*abs(E(i))^2 *dx;
+    end
+
+    L = x(length(x));
+    energy_field = energy_field/L;
+    norm_fac = sqrt(1/energy_field);
+    E_norm = E*norm_fac;
+    H_norm = H*norm_fac;
+    field_norm = [x;refractive_idx;E_norm;H_norm];
+end
+
+function g = coupling_strength(hw,field,ne,m,e,epsilon)
+    field_norm = normalizefield(field);
+    E = abs(field_norm(3,:));
+    x = field_norm(1,:);
+    L = x(length(x))*1e-6;
+    u0 = max(E);
+    g = e/2*sqrt(ne/m/L/epsilon)*u0;
 end
 
 function [w0,sig,t_decay] = fit_lorentzian(x,y)
