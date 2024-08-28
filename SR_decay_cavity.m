@@ -25,7 +25,7 @@ One_THz = 2*pi* 1/lambda0/n_Vac;
 
 %   Calculate and plot the field of 1D Tamm cavity at 1THz
 [r_1THz, field_1THz] = TMM_analysis(One_THz,Tamm,100);
-plot_field('Tamm field enhancement',abs(field_1THz),Tamm)
+%plot_field('Tamm field enhancement',abs(field_1THz),Tamm)
 
 %   Calculate DBR and Tamm cavity reflection coefficients for different
 %   wavenumbers
@@ -37,14 +37,14 @@ for i=1:length(w)
 end
 
 %   Plot reflection coefficients vs. frequency
-figure
-title('Reflection coefficient vs. frequency')
-plot(w*lambda0/2/pi,abs(reflections_Tamm).^2)
+%figure
+%title('Reflection coefficient vs. frequency')
+%plot(w*lambda0/2/pi,abs(reflections_Tamm).^2)
 
-legend('Tamm reflection')
+%legend('Tamm reflection')
 
-xlabel('Frequency(THz)')
-ylabel('Reflection')
+%xlabel('Frequency(THz)')
+%ylabel('Reflection')
 
 %   Quality factor
 Q_ref = Quality_factor_reflection(w,[One_THz*0.8,One_THz*1.2],abs(reflections_Tamm).^2)
@@ -61,28 +61,52 @@ c = 3e8;
 e = 1.6e-19;
 
 %   Cavity mode coupling strength
-g = 0.375e12 *0.12*2*pi;%coupling_strength(hw,field_1THz,ne,m,e,epsilon)
+g = 0.4e12 *0.7*2*pi;%coupling_strength(hw,field_1THz,ne,m,e,epsilon)
 g_SR = e^2 * ne / m / epsilon / (1+3.8)/ c
 Gamma_A = 2.6e9*2*pi/2;%1e12/Q_ref
 Gamma_B = 5.6e9*2*pi/2;
 wc = 0.4e12 *2*pi;
 wk = 0.4e12 *2*pi;
-rs = [];
-w =  linspace(0.2,0.6,1001) *1e12*2*pi; % Angular frequencies
+trans = [];
+reflec = [];
+absp = [];
+tot = [];
+w =  linspace(0.0,0.8,1001) *1e12*2*pi; % Angular frequencies
 
 for i=1:length(w)
-    rate_SP = Transmission_SR(w(i),wk,wc,g,Gamma_A,Gamma_B);
-    rs = [rs,abs(rate_SP)^2];
+    trans = [trans,abs(Transmission_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
+    reflec = [reflec,abs(Reflection_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
+    absp = [absp,abs(Absorption_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
+    tot = [tot,trans(i)+reflec(i)+absp(i)];
 end
 figure
-plot(w/2/pi/1e12,rs);
+hold on
+plot(w/2/pi/1e12,trans);
+plot(w/2/pi/1e12,reflec);
+plot(w/2/pi/1e12,absp);
+
 xlabel('Frequency(THz)')
 ylabel('Spontaneous Emission Spectrum')
-dw = w(2)-w(1);
-Cavity_SP_rate = sum(rs)*dw;
-SP_time = 1/Cavity_SP_rate;
-[w0,sig,t_decay] = fit_lorentzian(w(250:350),sqrt(rs(250:350)));
+legend('Transmittance','Reflectance','Absorption')
+hold off
+[w0,sig,t_decay] = fit_lorentzian(w(250:350),sqrt(trans(250:350)));
 t_decay
+
+%   Spontaneous Emission Rate
+g = 0.4e12 *2*pi *linspace(0.001,1,100);
+g_SR = e^2 * ne / m / epsilon / (1+3.8)/ c
+Gamma_A = 0.05*0.4e12*2*pi;%1e12/Q_ref
+Gamma_B = 0.05*0.4e12*2*pi;
+wc = 0.4e12 *2*pi;
+wk = 0.4e12 *2*pi;
+sp = [];
+for i=1:length(g)
+    sp = [sp,spontaneous_emission_rate(g(i),wk,wc,Gamma_A,Gamma_B)];
+end
+r_sat = 2*Gamma_A*Gamma_B/(Gamma_A+Gamma_B);
+figure
+plot(log(g/wc),log(sp/r_sat/pi));
+
 
     %   Functions
 %       Physics calculation functions
@@ -106,26 +130,36 @@ function G = System_Matrix(w,wk,wc,g,Ga,Gb)
     G = inv(U);
 end
 
-function trans_SP = Transmission_SR(w,wk,wc,g,Ga,Gb)
+function trans_SR = Transmission_SR(w,wk,wc,g,Ga,Gb)
     G = System_Matrix(w,wk,wc,g,Ga,Gb);
     ga = sqrt(Ga/pi);
     gb = sqrt(Gb/pi);
 
-    trans_SP = 2i*Ga*G(1,3);
+    trans_SR = 2i*Ga*G(1,3);
 end
-function ref_SP = Reflection_SR(w,wk,wc,g,Ga,Gb)
+function ref_SR = Reflection_SR(w,wk,wc,g,Ga,Gb)
     G = System_Matrix(w,wk,wc,g,Ga,Gb);
     ga = sqrt(Ga/pi);
     gb = sqrt(Gb/pi);
 
-    ref_SP = 1+2i*Ga*G(1,1);
+    ref_SR = 1+2i*Ga*G(1,1);
 end
-function abs_SP = Absorption_SR(w,wk,wc,g,Ga,Gb)
+function abs_SR = Absorption_SR(w,wk,wc,g,Ga,Gb)
     G = System_Matrix(w,wk,wc,g,Ga,Gb);
     ga = sqrt(Ga/pi);
     gb = sqrt(Gb/pi);
 
-    abs_SP = 2i*gb/ga*Ga*G(2,1);
+    abs_SR = 2i*gb/ga*Ga*G(2,1);
+end
+
+function SP_rate = spontaneous_emission_rate(g,wk,wc,Ga,Gb)
+    w =  linspace(0.0,0.8,1001) *1e12*2*pi; % Angular frequencies
+    absp = [];
+    for i=1:length(w)
+        absp = [absp,abs(Absorption_SR(w(i),wk,wc,g,Ga,Gb))^2];
+    end
+    dw = w(2)-w(1);
+    SP_rate = sum(absp)*dw;
 end
 
 %   Electric field amplitude spatial enhancement for multilayer structure
