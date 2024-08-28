@@ -61,26 +61,28 @@ c = 3e8;
 e = 1.6e-19;
 
 %   Cavity mode coupling strength
-g = coupling_strength(hw,field_1THz,ne,m,e,epsilon)
+g = 0.375e12 *0.12*2*pi;%coupling_strength(hw,field_1THz,ne,m,e,epsilon)
 g_SR = e^2 * ne / m / epsilon / (1+3.8)/ c
-Gamma_A = 1e12/Q_ref
-Gamma_B = 1/(150e-12)
-wc = 1e12*2*pi;
-wk = 1e12*2*pi;
+Gamma_A = 2.6e9*2*pi/2;%1e12/Q_ref
+Gamma_B = 5.6e9*2*pi/2;
+wc = 0.4e12 *2*pi;
+wk = 0.4e12 *2*pi;
 rs = [];
-w = 2*pi* linspace(0.8,1.2,1001) *1e12; % Angular frequencies
+w =  linspace(0.2,0.6,1001) *1e12*2*pi; % Angular frequencies
 
 for i=1:length(w)
-    rate_SP = Spontaneous_decay_rate(w(i),wk,wc,g,Gamma_A,Gamma_B);
+    rate_SP = Transmission_SR(w(i),wk,wc,g,Gamma_A,Gamma_B);
     rs = [rs,abs(rate_SP)^2];
 end
 figure
-plot(w/2/pi,rs);
+plot(w/2/pi/1e12,rs);
+xlabel('Frequency(THz)')
+ylabel('Spontaneous Emission Spectrum')
 dw = w(2)-w(1);
-Cavity_SP_rate = sum(rs)*dw
-Fermi_golden_rule_rate = pi * g^2 * Gamma_A/(g^2 + Gamma_A^2)/ pi
-
-
+Cavity_SP_rate = sum(rs)*dw;
+SP_time = 1/Cavity_SP_rate;
+[w0,sig,t_decay] = fit_lorentzian(w(250:350),sqrt(rs(250:350)));
+t_decay
 
     %   Functions
 %       Physics calculation functions
@@ -93,17 +95,37 @@ end
 function G = System_Matrix(w,wk,wc,g,Ga,Gb)
     U11 = wk-1i*Ga-w;
     U12 = 1i*g;
+    U13 = 0;
     U21 = -1i*g;
     U22 = wc-1i*Gb-w;
-    U = [U11,U12;U21,U22];
+    U23 = 1i*g;
+    U31 = 0;
+    U32 = -1i*g;
+    U33 = wk-1i*Ga-w;
+    U = [U11,U12,U13;U21,U22,U23;U31,U32,U33];
     G = inv(U);
 end
 
-function rate_SP = Spontaneous_decay_rate(w,wk,wc,g,Ga,Gb)
+function trans_SP = Transmission_SR(w,wk,wc,g,Ga,Gb)
     G = System_Matrix(w,wk,wc,g,Ga,Gb);
-    ga = Ga/sqrt(pi);
-    gb = Gb/sqrt(pi);
-    rate_SP = 2i*ga/gb*Gb*G(1,2);
+    ga = sqrt(Ga/pi);
+    gb = sqrt(Gb/pi);
+
+    trans_SP = 2i*Ga*G(1,3);
+end
+function ref_SP = Reflection_SR(w,wk,wc,g,Ga,Gb)
+    G = System_Matrix(w,wk,wc,g,Ga,Gb);
+    ga = sqrt(Ga/pi);
+    gb = sqrt(Gb/pi);
+
+    ref_SP = 1+2i*Ga*G(1,1);
+end
+function abs_SP = Absorption_SR(w,wk,wc,g,Ga,Gb)
+    G = System_Matrix(w,wk,wc,g,Ga,Gb);
+    ga = sqrt(Ga/pi);
+    gb = sqrt(Gb/pi);
+
+    abs_SP = 2i*gb/ga*Ga*G(2,1);
 end
 
 %   Electric field amplitude spatial enhancement for multilayer structure
