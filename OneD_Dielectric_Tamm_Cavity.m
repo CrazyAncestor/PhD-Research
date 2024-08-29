@@ -407,6 +407,14 @@ function field_norm = normalizefield(field)
     field_norm = [x;refractive_idx;E_norm;H_norm];
 end
 
+function g = coupling_strength(hw,field,ne,m,e,epsilon)
+    field_norm = normalizefield(field);
+    E = abs(field_norm(3,:));
+    x = field_norm(1,:);
+    L = x(length(x))*1e-6;
+    u0 = max(E);
+    g = e/2*sqrt(ne/m/L/epsilon)*u0;
+end
 
 function [w0,sig,t_decay] = fit_lorentzian(x,y)
     [y0,idx0] = max(abs(y));
