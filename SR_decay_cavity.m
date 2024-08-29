@@ -61,37 +61,51 @@ c = 3e8;
 e = 1.6e-19;
 
 %   Cavity mode coupling strength
-g = 0.4e12 *0.7*2*pi;%coupling_strength(hw,field_1THz,ne,m,e,epsilon)
+g = 0.4e12 *0.1*2*pi;%coupling_strength(hw,field_1THz,ne,m,e,epsilon)
 g_SR = e^2 * ne / m / epsilon / (1+3.8)/ c
-Gamma_A = 2.6e9*2*pi/2;%1e12/Q_ref
-Gamma_B = 5.6e9*2*pi/2;
+Gamma_A = 1e9*2*pi*linspace(2,2,5);%1e12/Q_ref
+Gamma_B = 1e9*2*pi*linspace(1,5,5);
 wc = 0.4e12 *2*pi;
 wk = 0.4e12 *2*pi;
 trans = [];
-reflec = [];
-absp = [];
+reflecs = [];
+absps = [];
 tot = [];
-w =  linspace(0.0,0.8,1001) *1e12*2*pi; % Angular frequencies
+w =  linspace(0.3,0.5,1001) *1e12*2*pi; % Angular frequencies
 
+for k = 1:length(Gamma_A)
+    tran = [];
+    reflec = [];
+    absp = [];
 for i=1:length(w)
-    trans = [trans,abs(Transmission_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
-    reflec = [reflec,abs(Reflection_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
-    absp = [absp,abs(Absorption_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
-    tot = [tot,trans(i)+reflec(i)+absp(i)];
+    tran = [tran,abs(Transmission_SR(w(i),wk,wc,g,Gamma_A(k),Gamma_B(k)))^2];
+    reflec = [reflec,abs(Reflection_SR(w(i),wk,wc,g,Gamma_A(k),Gamma_B(k)))^2];
+    absp = [absp,abs(Absorption_SR(w(i),wk,wc,g,Gamma_A(k),Gamma_B(k)))^2];
+end
+    trans = [trans;tran];
+    reflecs = [reflecs;reflec];
+    absps = [absps;absp];
 end
 figure
 hold on
-plot(w/2/pi/1e12,trans);
-plot(w/2/pi/1e12,reflec);
-plot(w/2/pi/1e12,absp);
-
+for k = 1:length(Gamma_A)
+plot(w/2/pi/1e12,trans(k,:));
+[pks,locs,widths,proms] = findpeaks(trans(k,:),w/2/pi/1e12);
+widths
+end
+%plot(w/2/pi/1e12,reflec);
+%plot(w/2/pi/1e12,absp);
+legend()
 xlabel('Frequency(THz)')
-ylabel('Spontaneous Emission Spectrum')
-legend('Transmittance','Reflectance','Absorption')
+ylabel('Transmission/Reflection/Absorption Spectrum')
+%legend('Transmittance','Reflectance','Absorption')
 hold off
-[w0,sig,t_decay] = fit_lorentzian(w(250:350),sqrt(trans(250:350)));
-t_decay
+%[w0,sig,t_decay] = fit_lorentzian(w(250:350),sqrt(trans(250:350)));
+%t_decay
 
+
+sp_decay= 0 ;
+if sp_decay==1
 %   Spontaneous Emission Rate
 g = 0.4e12 *2*pi *linspace(0.001,1,100);
 g_SR = e^2 * ne / m / epsilon / (1+3.8)/ c
@@ -106,7 +120,7 @@ end
 r_sat = 2*Gamma_A*Gamma_B/(Gamma_A+Gamma_B);
 figure
 plot(log(g/wc),log(sp/r_sat/pi));
-
+end
 
     %   Functions
 %       Physics calculation functions
@@ -490,4 +504,8 @@ function [w0,sig,t_decay] = fit_lorentzian(x,y)
     fun = @(sig)error(sig,x,y);
     sig = fminbnd(fun,0,w0);
     t_decay = 1/sig;
+end
+
+function filter_trans(x,y)
+[pks,locs,widths,proms] = findpeaks(y,x);
 end
