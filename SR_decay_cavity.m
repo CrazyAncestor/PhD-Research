@@ -5,10 +5,45 @@ GHz = 1e9*2*pi;
 
 Gamma_A = 5 * GHz;
 Gamma_B = 2 * GHz;
-Gamma_C = 0.1 * GHz;
+Gamma_C = 1 * GHz;
 wc = 0.4 * THz;
 wk = 0.4 * THz;
 g = 0.2 * wc;
+
+global model_usage
+model_usage = 0;
+w_dim = 2;
+M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
+
+
+main = 0;
+
+if main==1
+spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+
+figure
+hold on
+for k = 2:4
+    w = spectra(1,:);
+    plot(w/THz,spectra(k,:));
+end
+legend('Transmission','Reflection','Absorption')
+xlabel('Frequency(THz)')
+ylabel('Transmission/Reflection/Absorption Spectra')
+hold off
+
+
+%   Coupling strength and decaying rates
+THz = 1e12*2*pi;
+GHz = 1e9*2*pi;
+
+Gamma_A = 5 * GHz;
+Gamma_B = 2 * GHz;
+Gamma_C = 1 * GHz;
+wc = 0.4 * THz;
+wk = 0.4 * THz;
+g = 0. * wc;
+
 
 spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
@@ -18,7 +53,7 @@ for k = 2:4
     w = spectra(1,:);
     plot(w/THz,spectra(k,:));
 end
-%legend('Transmission','Reflection','Absorption')
+legend('Transmission','Reflection','Absorption')
 xlabel('Frequency(THz)')
 ylabel('Transmission/Reflection/Absorption Spectra')
 hold off
@@ -32,10 +67,6 @@ e = 1.6e-19;
 n_GaAs = 3.8;
 SR_decay_free_space = e^2 * ne / m / epsilon / (1+n_GaAs)/ c /GHz
 
-
-main = 0;
-
-if main==1
 %   Transmission width of polariton modes
 Gamma_A = 2 * GHz;
 Gamma_B = 1 * GHz * linspace(1,5,100);
@@ -75,6 +106,26 @@ ylabel('Lower polariton transmission')
 end
     %   Functions
 %       Physics calculation functions
+function M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
+    w = wc*linspace(0,2,w_dim);
+    dw = w(2)-w(1);
+    T = [];
+    for i = 1:w_dim
+        temp = [];
+        for j = 1:w_dim
+            if i==j
+                G = Hopfield_Matrix(w(j),wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+                temp = [temp,G];
+            else
+                G = zeros(4);
+                temp = [temp,G];
+            end
+            
+        end
+        T = [T;temp];
+    end
+    M = inv(T);
+end
 function spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     tran = [];
     reflec = [];
@@ -93,20 +144,43 @@ function spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     spectra = [w;tran;reflec;absp];
 end
 
-function G = System_Matrix(w,wk,wc,g,Ga,Gb,Gc)
+function G = RWA_Matrix(w,wk,wc,g,Ga,Gb,Gc)
     U = [wk-1i*(Ga+Gc)-w, 1i*g;
         -1i*g, wc-1i*Gb-w];
-    G = inv(U);
+    G = U;
+end
+
+function G = Hopfield_Matrix(w,wk,wc,g,Ga,Gb,Gc)
+    D = g^2/wc;
+    U = [wk-1i*(Ga+Gc)-w+2*D,1i*g,2*D,-1i*g;
+        -1i*g,wc-1i*Gb-w,-1i*g,0;
+        -2*D,-1i*g,-wk-1i*(Ga+Gc)-w-2*D,1i*g;
+        -1i*g,0,-1i*g,-wc-1i*Gb-w];
+    G = U;
 end
 
 function U = TRA_Matrix(w,wk,wc,g,Ga,Gb,Gc)
-    G = System_Matrix(w,wk,wc,g,Ga,Gb,Gc);
+
     ga = sqrt(Ga/pi);
     gb = sqrt(Gb/pi);
     gc = sqrt(Gc/pi);
-    A = [ga,0;0,gb;gc,0];
-    B = [2i*Ga/ga,0,2i*Gc/gc;0,2i*Gb/gb,0];
-    U = A*G*B;
+
+    global model_usage
+    if model_usage==0
+        G = RWA_Matrix(w,wk,wc,g,Ga,Gb,Gc);
+        G = inv(G);
+        A = [ga,0;0,gb;gc,0];
+        B = [2i*Ga/ga,0,2i*Gc/gc;0,2i*Gb/gb,0];
+        U = A*G*B;
+    elseif model_usage==1
+        G = Hopfield_Matrix(w,wk,wc,g,Ga,Gb,Gc);
+        G = inv(G);
+        A = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
+        B = [2i*Ga/ga,0,2i*Gc/gc;0,2i*Gb/gb,0;2i*Ga/ga,0,2i*Gc/gc;0,2i*Gb/gb,0];
+        U = A*G*B;
+    end
+    
+    
 end
 
 function trans_SR = Transmission_SR(w,wk,wc,g,Ga,Gb,Gc)
