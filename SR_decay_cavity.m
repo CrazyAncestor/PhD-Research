@@ -12,14 +12,9 @@ g = 0.2 * wc;
 
 global model_usage
 model_usage = 0;
-w_dim = 2;
-M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
+w_dim = 500;
 
-
-main = 0;
-
-if main==1
-spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
 figure
 hold on
@@ -32,7 +27,9 @@ xlabel('Frequency(THz)')
 ylabel('Transmission/Reflection/Absorption Spectra')
 hold off
 
+main = 0;
 
+if main==1
 %   Coupling strength and decaying rates
 THz = 1e12*2*pi;
 GHz = 1e9*2*pi;
@@ -106,26 +103,64 @@ ylabel('Lower polariton transmission')
 end
     %   Functions
 %       Physics calculation functions
+function spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
+    tran = [];
+    reflec = [];
+    absp = [];
+
+    w = wc*linspace(0,2,w_dim);
+    M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+
+    for i=1:w_dim
+        idx = (i-1)*3;
+        tr = M(idx+3,idx+1);
+        ref = 1 + M(idx+1,idx+1);
+        ab = M(idx+2,idx+1);
+        tran = [tran,abs(tr)^2];
+        reflec = [reflec,abs(ref)^2];
+        absp = [absp,abs(ab)^2];
+    end
+
+    spectra = [w;tran;reflec;absp];
+end
+
 function M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     w = wc*linspace(0,2,w_dim);
-    dw = w(2)-w(1);
+    %dw = w(2)-w(1);
     T = [];
+    UA = [];
+    UB = [];
+
+    ga = sqrt(Gamma_A/pi);
+    gb = sqrt(Gamma_B/pi);
+    gc = sqrt(Gamma_C/pi);
+    A = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
+    B = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
+
     for i = 1:w_dim
-        temp = [];
+        T_temp = [];
+        ua = [];
+        ub = [];
         for j = 1:w_dim
             if i==j
                 G = Hopfield_Matrix(w(j),wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
-                temp = [temp,G];
+                ua = [ua,A];
+                T_temp = [T_temp,G];
+                ub = [ub,B];
             else
-                G = zeros(4);
-                temp = [temp,G];
+                ua = [ua,zeros(3,4)];
+                T_temp = [T_temp,zeros(4)];
+                ub = [ub,zeros(4,3)];
             end
             
         end
-        T = [T;temp];
+        UA = [UA;ua];
+        T = [T;T_temp];
+        UB = [UB;ub];
     end
-    M = inv(T);
+    M = UA * inv(T) * UB;
 end
+
 function spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     tran = [];
     reflec = [];
