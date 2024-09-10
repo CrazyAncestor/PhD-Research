@@ -10,9 +10,19 @@ wc = 0.4 * THz;
 wk = 0.4 * THz;
 g = 0.2 * wc;
 
+
+Bi = 1;
+DB = 0.5;
+wp = wc;
+Dt = 10/wp;
+dB_freq(w_dim,wc,Bi,DB,wp,Dt);
+
+main = 0;
+
+if main==1
 global model_usage
 model_usage = 0;
-w_dim = 500;
+w_dim = 250;
 
 spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
@@ -27,9 +37,6 @@ xlabel('Frequency(THz)')
 ylabel('Transmission/Reflection/Absorption Spectra')
 hold off
 
-main = 0;
-
-if main==1
 %   Coupling strength and decaying rates
 THz = 1e12*2*pi;
 GHz = 1e9*2*pi;
@@ -103,6 +110,22 @@ ylabel('Lower polariton transmission')
 end
     %   Functions
 %       Physics calculation functions
+function dB_freq(w_dim,wc,Bi,DB,wp,Dt)
+    w = wc*linspace(-2*pi,2*pi,w_dim);
+    dw = w(2) - w(1);
+    t = 1/dw *linspace(-1,1,w_dim);
+    Bt = [];
+    for i =1:length(t)
+        Bt = [Bt,magnetic_time_domain(t(i),Bi,DB,wp,Dt)];
+    end
+    Bf = fft(Bt);
+    plot(w,Bf);
+end
+
+function Bt = magnetic_time_domain(t,Bi,DB,wp,Dt)
+    Bt = DB * cos(wp*t) * exp(-t^2/2/Dt^2);
+end
+
 function spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     tran = [];
     reflec = [];
