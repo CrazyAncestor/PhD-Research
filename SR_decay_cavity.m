@@ -19,24 +19,30 @@ g = 0.2 * wc;
 
 Bi = 1;
 DB = 0.5;
-wp = wc;
+wp = wc*0.01;
 Dt = 10/wp;
-w_dim = 500;
-%dB_freq(w_dim,wc,Bi,DB,wp,Dt);
-dg_freq(w_dim,wc,Bi,DB,wp,Dt,g)
-main = 0;
+w_Bmod_dim = 400;
 
-if main==1
+global DWCF
+global DGF
+global w_Bmod
+
+[w_Bmod,DWCF] = wc_fft(w_Bmod_dim,wc,Bi,DB,wp,Dt);
+[w_Bmod,DGF] = g_fft(w_Bmod_dim,wc,Bi,DB,wp,Dt,g);
+
+
 global model_usage
 model_usage = 0;
 
-
-spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+w_dim = 250;
+w = wc*linspace(0,2,w_dim);
+spectra = MATRIX_tra_spectra(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
 figure
 hold on
 for k = 2:4
     w = spectra(1,:);
+    N = length(w);
     plot(w/THz,spectra(k,:));
 end
 legend('Transmission','Reflection','Absorption')
@@ -44,6 +50,10 @@ xlabel('Frequency(THz)')
 ylabel('Transmission/Reflection/Absorption Spectra')
 hold off
 
+
+main = 0;
+
+if main==1
 %   Coupling strength and decaying rates
 THz = 1e12*2*pi;
 GHz = 1e9*2*pi;
@@ -117,57 +127,80 @@ ylabel('Lower polariton transmission')
 end
     %   Functions
 %       Physics calculation functions
-function dB_freq(w_dim,wc,Bi,DB,wp,Dt)
-    N = w_dim;
-    T = 2*pi/wp*100;
-    dt = T/N;
-    fs = 1/dt;
-    w = fs/N * 2* pi * (0:N-1);
-    t = dt *(-N/2:N/2-1);
-    Bt = [];
-    for i =1:length(t)
-        Bt = [Bt,magnetic_time_domain(t(i),Bi,DB,wp,Dt)];
-    end
-    Bf = fft(Bt);
-
-    figure
-    plot(w,Bf);
-    figure
-    plot(t,Bt);
+function yf = fft_analysis(yt)
+    yf = fft(yt);
+    N = length(yf);
+    a = yf(1:N/2);
+    b = yf(N/2+1:N);
+    yf = [b,a];
 end
-
-function dg_freq(w_dim,wc,Bi,DB,wp,Dt,g)
+function [w,DWCF] = wc_fft(w_dim,wc,Bi,DB,wp,Dt)
     N = w_dim;
     T = 2*pi/wp*50;
     dt = T/N;
     fs = 1/dt;
-    w = fs/N * 2* pi * (0:N-1);
+    w = fs/N * 2* pi * (-N/2:N/2-1);
+    t = dt *(-N/2:N/2-1);
+    wct = [];
+    for i =1:length(t)
+        Bt = magnetic_time_domain(t(i),Bi,DB,wp,Dt);
+        wct = [wct, wc*(Bt/Bi) - wc];
+    end
+    DWCF = fft_analysis(wct)*dt;
+end
+
+function [w,DGF] = g_fft(w_dim,wc,Bi,DB,wp,Dt,g)
+    N = w_dim;
+    T = 2*pi/wp*50;
+    dt = T/N;
+    fs = 1/dt;
+    w = fs/N * 2* pi * (-N/2:N/2-1);
     t = dt *(-N/2:N/2-1);
     gt = [];
     for i =1:length(t)
-        Bt = magnetic_time_domain(t(i),Bi,DB,wp,Dt) + Bi;
+        Bt = magnetic_time_domain(t(i),Bi,DB,wp,Dt);
         gt = [gt, g*sqrt(Bt/Bi) - g];
     end
-    gf = fft(gt);
+    DGF = fft_analysis(gt)*dt;
     figure
-    plot(t,gt);
+    plot(t,gt)
     figure
-    plot(w,real(gf));
+    plot(w,DGF)
 end
+
+function dg = g_mod_freq(wi,wj)
+    global DGF
+    global w_Bmod
+    w = wi - wj;
+    dg = interp1(w_Bmod,DGF,w);
+    if isnan(dg)==1
+        dg = 0;
+    end
+end
+
+function dwc = wc_mod_freq(wi,wj)
+    global DWCF
+    global w_Bmod
+    w = wi - wj;
+    dwc = interp1(w_Bmod,DWCF,w);
+    if isnan(dwc)==1
+        dwc = 0;
+    end
+end
+
 
 function Bt = magnetic_time_domain(t,Bi,DB,wp,Dt)
-    Bt = DB * cos(wp*t) * exp(-t^2/2/Dt^2);
+    Bt = DB * cos(wp*t) * exp(-t^2/2/Dt^2) + Bi;
 end
 
-function spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
+function spectra = MATRIX_tra_spectra(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     tran = [];
     reflec = [];
     absp = [];
 
-    w = wc*linspace(0,2,w_dim);
-    M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+    M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
-    for i=1:w_dim
+    for i=1:length(w)
         idx = (i-1)*3;
         tr = M(idx+3,idx+1);
         ref = 1 + M(idx+1,idx+1);
@@ -180,9 +213,8 @@ function spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     spectra = [w;tran;reflec;absp];
 end
 
-function M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
-    w = wc*linspace(0,2,w_dim);
-    %dw = w(2)-w(1);
+function M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
+
     T = [];
     UA = [];
     UB = [];
@@ -193,19 +225,22 @@ function M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     A = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
     B = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
 
-    for i = 1:w_dim
+    for i = 1:length(w)
         T_temp = [];
         ua = [];
         ub = [];
-        for j = 1:w_dim
+        dw = w(2)-w(1);
+        for j = 1:length(w)
             if i==j
                 G = Hopfield_Matrix(w(j),wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+                DG = Modulated_Hopfield_Matrix(w(i),w(j),dw);
                 ua = [ua,A];
-                T_temp = [T_temp,G];
+                T_temp = [T_temp,G + DG];
                 ub = [ub,B];
             else
+                DG = Modulated_Hopfield_Matrix(w(i),w(j),dw);
                 ua = [ua,zeros(3,4)];
-                T_temp = [T_temp,zeros(4)];
+                T_temp = [T_temp,DG];
                 ub = [ub,zeros(4,3)];
             end
             
@@ -215,6 +250,18 @@ function M = Time_Mod_Matrix(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
         UB = [UB;ub];
     end
     M = UA * inv(T) * UB;
+end
+
+function DG = Modulated_Hopfield_Matrix(wi,wj,dw)
+    dg = g_mod_freq(wi,wj);
+    dwc = wc_mod_freq(wi,wj);
+    dwc = 0;
+    
+    DG = [0,1i*dg,0,-1i*dg;
+         -1i*dg,dwc,-1i*dg,0;
+         0,-1i*dg,0,1i*dg;
+         -1i*dg,0,-1i*dg,-dwc];
+    DG = DG * dw;
 end
 
 function spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
