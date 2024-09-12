@@ -1,4 +1,10 @@
     %   Physical parameter
+%   Natural constant
+e = 1.6e-19;
+me = 9.11e-31*0.067;
+global wc0
+wc0 = e/me;
+
 %   Coupling strength and decaying rates
 THz = 1e12*2*pi;
 GHz = 1e9*2*pi;
@@ -15,14 +21,15 @@ Bi = 1;
 DB = 0.5;
 wp = wc;
 Dt = 10/wp;
-dB_freq(w_dim,wc,Bi,DB,wp,Dt);
-
+w_dim = 500;
+%dB_freq(w_dim,wc,Bi,DB,wp,Dt);
+dg_freq(w_dim,wc,Bi,DB,wp,Dt,g)
 main = 0;
 
 if main==1
 global model_usage
 model_usage = 0;
-w_dim = 250;
+
 
 spectra = MATRIX_tra_spectra(w_dim,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
@@ -111,15 +118,41 @@ end
     %   Functions
 %       Physics calculation functions
 function dB_freq(w_dim,wc,Bi,DB,wp,Dt)
-    w = wc*linspace(-2*pi,2*pi,w_dim);
-    dw = w(2) - w(1);
-    t = 1/dw *linspace(-1,1,w_dim);
+    N = w_dim;
+    T = 2*pi/wp*100;
+    dt = T/N;
+    fs = 1/dt;
+    w = fs/N * 2* pi * (0:N-1);
+    t = dt *(-N/2:N/2-1);
     Bt = [];
     for i =1:length(t)
         Bt = [Bt,magnetic_time_domain(t(i),Bi,DB,wp,Dt)];
     end
     Bf = fft(Bt);
+
+    figure
     plot(w,Bf);
+    figure
+    plot(t,Bt);
+end
+
+function dg_freq(w_dim,wc,Bi,DB,wp,Dt,g)
+    N = w_dim;
+    T = 2*pi/wp*50;
+    dt = T/N;
+    fs = 1/dt;
+    w = fs/N * 2* pi * (0:N-1);
+    t = dt *(-N/2:N/2-1);
+    gt = [];
+    for i =1:length(t)
+        Bt = magnetic_time_domain(t(i),Bi,DB,wp,Dt) + Bi;
+        gt = [gt, g*sqrt(Bt/Bi) - g];
+    end
+    gf = fft(gt);
+    figure
+    plot(t,gt);
+    figure
+    plot(w,real(gf));
 end
 
 function Bt = magnetic_time_domain(t,Bi,DB,wp,Dt)
