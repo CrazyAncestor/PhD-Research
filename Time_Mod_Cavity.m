@@ -17,7 +17,7 @@ me = 9.11e-31;
 me_GaAs = 0.067 * me;
 Bi = me_GaAs * wc / e; 
 DB = Bi * 0.5;
-wp = wc * [0.1,0.07,0.04,0.01];
+wp = wc * [2,1,0.5,0.25];
 Dt = 10./wp;
 w_Bmod_dim = 1000;
 
@@ -31,7 +31,7 @@ ylabel('Coupling strength in frequency domain')
 main = 1;
 if main ==1
 %   Calculate the transmission spectra
-w_dim = 250;
+w_dim = 400;
 w = wc * linspace(0,2,w_dim);
 
 trans_spectra = [];
@@ -50,7 +50,7 @@ for i = 1: (length(wp)+1)
     plot(w/THz,trans_spectra(i,:));
 end
 
-legend('wp = 0.1 wc','wp = 0.07 wc','wp = 0.04 wc','wp = 0.01 wc','Ext B turn off')
+legend('wp = 2 wc','wp = 1 wc','wp = 0.5 wc','wp = 0.25 wc','Ext B turn off')
 xlabel('Frequency(THz)')
 ylabel('Transmission Spectra')
 hold off
