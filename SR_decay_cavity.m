@@ -1,14 +1,9 @@
     %   Physical parameter
-%   Natural constant
-e = 1.6e-19;
-me = 9.11e-31*0.067;
-global wc0
-wc0 = e/me;
-
-%   Coupling strength and decaying rates
+%   Angular frequency unit
 THz = 1e12*2*pi;
 GHz = 1e9*2*pi;
 
+%   Coupling strength and decaying rates
 Gamma_A = 5 * GHz;
 Gamma_B = 2 * GHz;
 Gamma_C = 1 * GHz;
@@ -16,56 +11,12 @@ wc = 0.4 * THz;
 wk = 0.4 * THz;
 g = 0.2 * wc;
 
-
-Bi = 1;
-DB = 0.5;
-wp = wc*0.01;
-Dt = 10/wp;
-w_Bmod_dim = 400;
-
-global DWCF
-global DGF
-global w_Bmod
-
-[w_Bmod,DWCF] = wc_fft(w_Bmod_dim,wc,Bi,DB,wp,Dt);
-[w_Bmod,DGF] = g_fft(w_Bmod_dim,wc,Bi,DB,wp,Dt,g);
-
-
+%   Choose the physical model, 0 = Rotating-wave approximation (RWA), 1 =
+%   Hopfield model
 global model_usage
-model_usage = 0;
+model_usage = 1;
 
-w_dim = 250;
-w = wc*linspace(0,2,w_dim);
-spectra = MATRIX_tra_spectra(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
-
-figure
-hold on
-for k = 2:4
-    w = spectra(1,:);
-    N = length(w);
-    plot(w/THz,spectra(k,:));
-end
-legend('Transmission','Reflection','Absorption')
-xlabel('Frequency(THz)')
-ylabel('Transmission/Reflection/Absorption Spectra')
-hold off
-
-
-main = 0;
-
-if main==1
-%   Coupling strength and decaying rates
-THz = 1e12*2*pi;
-GHz = 1e9*2*pi;
-
-Gamma_A = 5 * GHz;
-Gamma_B = 2 * GHz;
-Gamma_C = 1 * GHz;
-wc = 0.4 * THz;
-wk = 0.4 * THz;
-g = 0. * wc;
-
-
+%   Calculate the transmission, reflection, absorption spectra
 spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
 
 figure
@@ -86,11 +37,14 @@ epsilon = 8.85e-12;
 c = 3e8;
 e = 1.6e-19;
 n_GaAs = 3.8;
-SR_decay_free_space = e^2 * ne / m / epsilon / (1+n_GaAs)/ c /GHz
+SR_decay_free_space = e^2 * ne / m / epsilon / (1+n_GaAs)/ c /GHz;
+
+fprintf('The superradiant decay rate in the free space is: %f GHz\n', SR_decay_free_space) ;
 
 %   Transmission width of polariton modes
 Gamma_A = 2 * GHz;
 Gamma_B = 1 * GHz * linspace(1,5,100);
+Gamma_C = 1 * GHz;
 wc = 0.4 * THz;
 wk = 0.4 * THz;
 g = 0.1 * wc;
@@ -99,17 +53,18 @@ width = [];
 
 
 for i=1:length(Gamma_B)
-    width_LP = transmission_pol_width(wk,wc,g,Gamma_A,Gamma_B(i));
+    width_LP = transmission_pol_width(wk,wc,g,Gamma_A,Gamma_B(i),Gamma_C);
     width = [width,width_LP/pi/1e9];
 end
 figure
 plot(Gamma_B/GHz,width);
 xlabel('Electron decaying rate(GHz)')
-ylabel('Lower polariton transmission')
+ylabel('Lower polariton transmission peak width (GHz)')
 
 %   Transmission width of polariton modes
 Gamma_A = 1 * GHz * linspace(0.01,5,100);
 Gamma_B = 5 * GHz ;
+Gamma_C = 1 * GHz;
 wc = 0.4 * THz;
 wk = 0.4 * THz;
 g = 0.1 * wc ;
@@ -117,153 +72,15 @@ g = 0.1 * wc ;
 width = [];
 
 for i=1:length(Gamma_A)
-    width_LP = transmission_pol_width(wk,wc,g,Gamma_A(i),Gamma_B);
+    width_LP = transmission_pol_width(wk,wc,g,Gamma_A(i),Gamma_B,Gamma_C);
     width = [width,width_LP];
 end
 figure
 plot(Gamma_A/GHz,width/pi/1e9);
 xlabel('Photon decaying rate(GHz)')
-ylabel('Lower polariton transmission')
-end
+ylabel('Lower polariton transmission peak width (GHz)')
+
     %   Functions
-%       Physics calculation functions
-function yf = fft_analysis(yt)
-    yf = fft(yt);
-    N = length(yf);
-    a = yf(1:N/2);
-    b = yf(N/2+1:N);
-    yf = [b,a];
-end
-function [w,DWCF] = wc_fft(w_dim,wc,Bi,DB,wp,Dt)
-    N = w_dim;
-    T = 2*pi/wp*50;
-    dt = T/N;
-    fs = 1/dt;
-    w = fs/N * 2* pi * (-N/2:N/2-1);
-    t = dt *(-N/2:N/2-1);
-    wct = [];
-    for i =1:length(t)
-        Bt = magnetic_time_domain(t(i),Bi,DB,wp,Dt);
-        wct = [wct, wc*(Bt/Bi) - wc];
-    end
-    DWCF = fft_analysis(wct)*dt;
-end
-
-function [w,DGF] = g_fft(w_dim,wc,Bi,DB,wp,Dt,g)
-    N = w_dim;
-    T = 2*pi/wp*50;
-    dt = T/N;
-    fs = 1/dt;
-    w = fs/N * 2* pi * (-N/2:N/2-1);
-    t = dt *(-N/2:N/2-1);
-    gt = [];
-    for i =1:length(t)
-        Bt = magnetic_time_domain(t(i),Bi,DB,wp,Dt);
-        gt = [gt, g*sqrt(Bt/Bi) - g];
-    end
-    DGF = fft_analysis(gt)*dt;
-    figure
-    plot(t,gt)
-    figure
-    plot(w,DGF)
-end
-
-function dg = g_mod_freq(wi,wj)
-    global DGF
-    global w_Bmod
-    w = wi - wj;
-    dg = interp1(w_Bmod,DGF,w);
-    if isnan(dg)==1
-        dg = 0;
-    end
-end
-
-function dwc = wc_mod_freq(wi,wj)
-    global DWCF
-    global w_Bmod
-    w = wi - wj;
-    dwc = interp1(w_Bmod,DWCF,w);
-    if isnan(dwc)==1
-        dwc = 0;
-    end
-end
-
-
-function Bt = magnetic_time_domain(t,Bi,DB,wp,Dt)
-    Bt = DB * cos(wp*t) * exp(-t^2/2/Dt^2) + Bi;
-end
-
-function spectra = MATRIX_tra_spectra(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
-    tran = [];
-    reflec = [];
-    absp = [];
-
-    M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
-
-    for i=1:length(w)
-        idx = (i-1)*3;
-        tr = M(idx+3,idx+1);
-        ref = 1 + M(idx+1,idx+1);
-        ab = M(idx+2,idx+1);
-        tran = [tran,abs(tr)^2];
-        reflec = [reflec,abs(ref)^2];
-        absp = [absp,abs(ab)^2];
-    end
-
-    spectra = [w;tran;reflec;absp];
-end
-
-function M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
-
-    T = [];
-    UA = [];
-    UB = [];
-
-    ga = sqrt(Gamma_A/pi);
-    gb = sqrt(Gamma_B/pi);
-    gc = sqrt(Gamma_C/pi);
-    A = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
-    B = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
-
-    for i = 1:length(w)
-        T_temp = [];
-        ua = [];
-        ub = [];
-        dw = w(2)-w(1);
-        for j = 1:length(w)
-            if i==j
-                G = Hopfield_Matrix(w(j),wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
-                DG = Modulated_Hopfield_Matrix(w(i),w(j),dw);
-                ua = [ua,A];
-                T_temp = [T_temp,G + DG];
-                ub = [ub,B];
-            else
-                DG = Modulated_Hopfield_Matrix(w(i),w(j),dw);
-                ua = [ua,zeros(3,4)];
-                T_temp = [T_temp,DG];
-                ub = [ub,zeros(4,3)];
-            end
-            
-        end
-        UA = [UA;ua];
-        T = [T;T_temp];
-        UB = [UB;ub];
-    end
-    M = UA * inv(T) * UB;
-end
-
-function DG = Modulated_Hopfield_Matrix(wi,wj,dw)
-    dg = g_mod_freq(wi,wj);
-    dwc = wc_mod_freq(wi,wj);
-    dwc = 0;
-    
-    DG = [0,1i*dg,0,-1i*dg;
-         -1i*dg,dwc,-1i*dg,0;
-         0,-1i*dg,0,1i*dg;
-         -1i*dg,0,-1i*dg,-dwc];
-    DG = DG * dw;
-end
-
 function spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     tran = [];
     reflec = [];
@@ -283,18 +100,16 @@ function spectra = tra_spectra(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
 end
 
 function G = RWA_Matrix(w,wk,wc,g,Ga,Gb,Gc)
-    U = [wk-1i*(Ga+Gc)-w, 1i*g;
+    G = [wk-1i*(Ga+Gc)-w, 1i*g;
         -1i*g, wc-1i*Gb-w];
-    G = U;
 end
 
 function G = Hopfield_Matrix(w,wk,wc,g,Ga,Gb,Gc)
     D = g^2/wc;
-    U = [wk-1i*(Ga+Gc)-w+2*D,1i*g,2*D,-1i*g;
+    G = [wk-1i*(Ga+Gc)-w+2*D,1i*g,2*D,-1i*g;
         -1i*g,wc-1i*Gb-w,-1i*g,0;
         -2*D,-1i*g,-wk-1i*(Ga+Gc)-w-2*D,1i*g;
         -1i*g,0,-1i*g,-wc-1i*Gb-w];
-    G = U;
 end
 
 function U = TRA_Matrix(w,wk,wc,g,Ga,Gb,Gc)
@@ -344,7 +159,7 @@ function SP_rate = spontaneous_emission_rate(g,wk,wc,Ga,Gb)
     SP_rate = sum(absp)*dw;
 end
 
-function width_LP = transmission_pol_width(wk,wc,g,Gamma_A,Gamma_B)
+function width_LP = transmission_pol_width(wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
 
     tran = [];
     reflec = [];
@@ -353,9 +168,9 @@ function width_LP = transmission_pol_width(wk,wc,g,Gamma_A,Gamma_B)
     w =  linspace(0,2*wc,1001); % Angular frequencies
 
     for i=1:length(w)
-        tran = [tran,abs(Transmission_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
-        reflec = [reflec,abs(Reflection_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
-        absp = [absp,abs(Absorption_SR(w(i),wk,wc,g,Gamma_A,Gamma_B))^2];
+        tran = [tran,abs(Transmission_SR(w(i),wk,wc,g,Gamma_A,Gamma_B,Gamma_C))^2];
+        reflec = [reflec,abs(Reflection_SR(w(i),wk,wc,g,Gamma_A,Gamma_B,Gamma_C))^2];
+        absp = [absp,abs(Absorption_SR(w(i),wk,wc,g,Gamma_A,Gamma_B,Gamma_C))^2];
         
     end
 
