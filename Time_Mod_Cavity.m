@@ -31,7 +31,7 @@ ylabel('Coupling strength in frequency domain')
 main = 1;
 if main ==1
 %   Calculate the transmission spectra
-w_dim = 400;
+w_dim = 1000;
 w = wc * linspace(0,2,w_dim);
 
 trans_spectra = [];
@@ -155,13 +155,17 @@ function M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C,turn_on_ext_B)
     gc = sqrt(Gamma_C/pi);
     A = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
     B = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
-
-    for i = 1:length(w)
+    
+    dw = w(2)-w(1);
+    N = length(w);
+    main = 0;
+    if main==1
+    for i = 1:N
         T_temp = [];
         ua = [];
         ub = [];
-        dw = w(2)-w(1);
-        for j = 1:length(w)
+        
+        for j = 1:N
             if turn_on_ext_B == 1
                 DG = Modulated_Hopfield_Matrix(w(i),w(j),dw);
             else
@@ -183,7 +187,29 @@ function M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C,turn_on_ext_B)
         T = [T;T_temp];
         UB = [UB;ub];
     end
-    M = UA * inv(T) * UB;
+    end
+    
+    gu = [];
+    au = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
+    bu = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
+    
+    for i = 1:N
+        gu = [gu,Hopfield_Matrix(w(i),wk,wc,g,Gamma_A,Gamma_B,Gamma_C)];
+    end
+
+    G = zeros(4*N);
+    A = kron(eye(N),au);
+    B = kron(eye(N),bu);
+    for i = 1:4
+        a = ones(N,1);
+        b = [0;0;0;0];
+        b(i) = 1;
+        c = kron(a,b);
+        d = gu(i,:).* c;
+        G = G + d .* kron(eye(N),ones(4));
+    end
+
+    M = A*inv(G)*B;
 end
 
 function DG = Modulated_Hopfield_Matrix(wi,wj,dw)
