@@ -14,6 +14,9 @@ for i=1:length(t)
 end
 figure
 plot(t/T,vz);
+xlabel('time (Period)')
+ylabel('Vz (m/s)')
+title('Velocity of z with time')
 
 
 %   Problem 2C
@@ -31,28 +34,40 @@ global x_all
 x_all = linspace(0*x0,2*x0,100);
 global Vx_all
 Vx_all = [];
-fx = [];
-x = linspace(0.98*x0,1.2*x0,100);
+
 for i = 1:length(x_all)
     Vx_all = [Vx_all, pot(x0,x_all(i))];
-    fx = [fx,force(x(i))];
 end
 figure
 plot(x_all,Vx_all)
-figure
-plot(x,fx)
+xlabel('x (m)')
+ylabel('Potential (m^2/s^2)')
+title('Potential diagram vs. x position')
+
 
 w0 = (w*w*(a-2)/(1+u0*u0))^0.5
 T0 = 2*pi/w0
-%       RK4 diagram
-global eps0
-eps0 = 0.001;
-global sign
-sign = 1;
-[ts,xs] = RK4_solution(@v_well,[0,[x0]],1e-2,1000);
-figure
-plot(ts,xs)
 
+global eps0
+global sign
+
+
+eps0s = [0.01,0.1,0.3,0.4];
+
+figure
+hold on
+for i=1:length(eps0s)
+    eps0 = eps0s(i);
+    sign = 1;
+    [ts,xs] = RK4_solution(@v_well,[0,[x0]],1e-2,1000);
+    x_max = max(xs);
+    x_avg = mean(xs);
+    plot(ts,(xs-x_avg)/max(xs-x_avg))
+end
+xlabel('time (sec)')
+ylabel('x (m)')
+title('Oscillation of x versus time')
+hold off
 
 
 function vz = velocity(t,g,w,alpha,theta_m)
