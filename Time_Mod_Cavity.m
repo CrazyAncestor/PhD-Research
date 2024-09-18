@@ -31,7 +31,7 @@ ylabel('Coupling strength in frequency domain')
 main = 1;
 if main ==1
 %   Calculate the transmission spectra
-w_dim = 1000;
+w_dim = 2000;
 w = wc * linspace(0,2,w_dim);
 
 trans_spectra = [];
@@ -153,63 +153,77 @@ function M = Time_Mod_Matrix(w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C,turn_on_ext_B)
     ga = sqrt(Gamma_A/pi);
     gb = sqrt(Gamma_B/pi);
     gc = sqrt(Gamma_C/pi);
-    A = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
-    B = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
-    
+   
     dw = w(2)-w(1);
     N = length(w);
-    main = 0;
-    if main==1
-    for i = 1:N
-        T_temp = [];
-        ua = [];
-        ub = [];
-        
-        for j = 1:N
-            if turn_on_ext_B == 1
-                DG = Modulated_Hopfield_Matrix(w(i),w(j),dw);
-            else
-                DG = zeros(4);
-            end
-            if i==j
-                G = Hopfield_Matrix(w(j),wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
-                ua = [ua,A];
-                T_temp = [T_temp,G + DG];
-                ub = [ub,B];
-            else
-                ua = [ua,zeros(3,4)];
-                T_temp = [T_temp,DG];
-                ub = [ub,zeros(4,3)];
-            end
-            
-        end
-        UA = [UA;ua];
-        T = [T;T_temp];
-        UB = [UB;ub];
-    end
-    end
-    
-    gu = [];
+
     au = [ga,0,ga,0;0,gb,0,gb;gc,0,gc,0];
     bu = [2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0;2i*Gamma_A/ga,0,2i*Gamma_C/gc;0,2i*Gamma_B/gb,0];
+
     
-    for i = 1:N
-        gu = [gu,Hopfield_Matrix(w(i),wk,wc,g,Gamma_A,Gamma_B,Gamma_C)];
-    end
+    G = init_G(N,w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+    G_mod = Mod_G(N,w,dw);
+    
+    G = G + G_mod;
 
+    H  = inv(G);
+    
+    M = final_M(N,H,au,bu);
+end
+
+function G = init_G(N,w,wk,wc,g,Gamma_A,Gamma_B,Gamma_C)
     G = zeros(4*N);
-    A = kron(eye(N),au);
-    B = kron(eye(N),bu);
-    for i = 1:4
-        a = ones(N,1);
-        b = [0;0;0;0];
-        b(i) = 1;
-        c = kron(a,b);
-        d = gu(i,:).* c;
-        G = G + d .* kron(eye(N),ones(4));
+    for i = 1:N
+        Gu = Hopfield_Matrix(w(i),wk,wc,g,Gamma_A,Gamma_B,Gamma_C);
+        m = 4*(i-1);
+        for p=1:4
+            for q = 1:4
+                G(m+p,m+q) = Gu(p,q);
+            end
+        end
     end
+end
 
-    M = A*inv(G)*B;
+function G_mod = Mod_G(N,w,dw)
+    G_mod_middle = [];
+    for j  = 1:N
+        DG = Modulated_Hopfield_Matrix(w(N/2),w(j),dw);
+        G_mod_middle = [G_mod_middle,DG];
+    end
+    
+    G_mod = zeros(4*N);
+    for i =1:N
+        for j = 1:N
+
+            m = 4*(i-1);
+            n = 4*(j-1);
+            s = 4*(j-1 - (i-N/2));
+            if s>0 & s<4*N
+                DGU = G_mod_middle(1:4, s+1:s+4 );
+                G_mod(m+1:m+4,n+1:n+4) = DGU;
+            end
+
+        end
+    end
+end
+
+function M = final_M(N,H,au,bu)
+    M = zeros(3*N);
+
+    for i = 1:N %9sec
+        for j = 1:N
+            Hu = H(4*(i-1)+1:4*(i-1)+4,4*(j-1)+1:4*(j-1)+4);
+            Mu  = au*Hu*bu; 
+            m = 3*(i-1);
+            n = 3*(j-1);
+            
+            for p=1:3
+                for q = 1:3
+                    M(m+p,n+q) = Mu(p,q);
+                end
+            end
+        end
+    end
 end
 
 function DG = Modulated_Hopfield_Matrix(wi,wj,dw)
