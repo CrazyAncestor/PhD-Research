@@ -15,6 +15,11 @@ def fft_analysis(yt):
     return yf
 
 def magnetic_time_domain(t, Bi, DB, wp, Dt):
+    #
+    if t>0:
+        Bt = Bi + DB
+    else:
+        Bt = Bi
     Bt = DB * np.cos(wp * t) * np.exp(-t**2 / (2 * Dt**2)) + Bi
     return Bt
 
@@ -39,7 +44,7 @@ def wc_fft(w_dim, wc, Bi, DB, wp, Dt):
         wct.append(wc * (Bt / Bi) - wc)
     
     wct = np.array(wct)
-    DWCF = fft_analysis(wct) * dt
+    DWCF = fft_analysis(wct) #* dt
     return w, DWCF
 
 def g_fft(w_dim, wc, Bi, DB, wp, Dt, g):
@@ -52,10 +57,10 @@ def g_fft(w_dim, wc, Bi, DB, wp, Dt, g):
     gt = []
     for i in range(len(t)):
         Bt = magnetic_time_domain(t[i], Bi, DB, wp, Dt)
-        gt.append(g * np.sqrt(Bt / Bi) - g)
+        gt.append(g * np.sqrt(np.abs(Bt / Bi)) - g)
     
     gt = np.array(gt)
-    DGF = fft_analysis(gt) * dt
+    DGF = fft_analysis(gt)# * dt
     return w, DGF
 
 # Physical parameters
@@ -76,8 +81,8 @@ e = 1.6e-19
 me = 9.11e-31
 me_GaAs = 0.067 * me
 Bi = me_GaAs * wc / e
-DB = Bi * 0.5
-wp = wc * np.array([2, 1, 0.5, 0.25])
+DB = Bi * 1e-5
+wp = wc * np.array([2,1,0.5])
 Dt = 10. / wp
 w_Bmod_dim = 1000
 
@@ -87,7 +92,7 @@ w_Bmod, DGF = g_fft(w_Bmod_dim, wc, Bi, DB, wp[0], Dt[0], g)
 
 # Plotting
 plt.figure()
-plt.plot(w_Bmod / 1e12, np.real(DGF))
+plt.plot(w_Bmod / 1e12, np.real(DWCF))
 plt.xlabel('Angular frequency (THz)')
 plt.ylabel('Coupling strength in frequency domain')
 plt.show()
@@ -137,7 +142,7 @@ def Mod_G(N, w, dw):
         for j in range(N):
             m = 4 * i
             n = 4 * j
-            s = (j - (N // 2))
+            s = (j - i +  (N // 2))
             if 0 < s <  N:
                 DGU = G_mod_middle[s, :, :]  # Select the appropriate slice
                 G_mod[m:m + 4, n:n + 4] = DGU
@@ -176,14 +181,17 @@ def Time_Mod_Matrix(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B):
                    [0, 2j * Gamma_B / gb, 0]])
 
     G = init_G(N, w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C)
-    G_mod = Mod_G(N, w, dw)
 
-    G += G_mod  # Element-wise addition
+    if turn_on_ext_B:
+        G_mod = Mod_G(N, w, dw)
+
+        G += G_mod  # Element-wise addition
+    
 
     H = np.linalg.inv(G)
     
     M = final_M(N, H, au, bu)
-    np.savetxt('SPEC_MATRIX.csv', M, delimiter=',')  # Save the matrix as CSV
+    #np.savetxt('SPEC_MATRIX.csv', M, delimiter=',')  # Save the matrix as CSV
     return M
 
 def MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w_Bmod_dim, Bi, DB, wp, Dt):
@@ -210,12 +218,11 @@ def MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w
     return spectra
 
 # Parameters
+
 w_dim = 500
 w = wc * np.linspace(0, 2, w_dim)
 
 trans_spectra = []
-
-
 
 # Plotting
 plt.figure()
@@ -227,7 +234,10 @@ for i in range(len(wp)):
                                         DB=DB, 
                                         wp=wp[i], 
                                         Dt=Dt[i])
-    plt.plot(w / THz, spectra_B_on[1,:])
+
+    print('hi')
+    plt.plot(w / THz, spectra_B_on[1,:],label='wp='+str(wp[i]/wc)+'wc')
+    #plt.plot(w / THz, spectra_B_off[1,:],label='wp='+str(wp[i]/wc)+'wc')
 
 plt.legend()
 plt.xlabel('Frequency (THz)')
@@ -235,3 +245,4 @@ plt.ylabel('Transmission Spectra')
 plt.title('Transmission Spectra vs Frequency')
 plt.grid()
 plt.show()
+
