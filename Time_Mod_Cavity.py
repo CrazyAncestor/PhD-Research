@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.fft import fft, fftfreq
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
@@ -7,7 +8,7 @@ DGF = None  # Placeholder, set this according to your program
 w_Bmod = None  # Placeholder, set this according to your program
 
 def fft_analysis(yt):
-    yf = np.fft.fft(yt)
+    yf = np.fft.fft(np.fft.fftshift(yt))
     N = len(yf)
     a = yf[:N//2]
     b = yf[N//2:]
@@ -15,12 +16,14 @@ def fft_analysis(yt):
     return yf
 
 def magnetic_time_domain(t, Bi, DB, wp, Dt):
-    #
+    #   Heaviside function
     if t>0:
         Bt = Bi + DB
     else:
         Bt = Bi
-    Bt = DB * np.cos(wp * t) * np.exp(-t**2 / (2 * Dt**2)) + Bi
+    
+    #   Pulse
+    #Bt =  DB * np.cos(wp * t) * np.exp(-t**2 / (2 * Dt**2) ) + Bi
     return Bt
 
 def Hopfield_Matrix(w, wk, wc, g, Ga, Gb, Gc):
@@ -33,26 +36,26 @@ def Hopfield_Matrix(w, wk, wc, g, Ga, Gb, Gc):
 
 def wc_fft(w_dim, wc, Bi, DB, wp, Dt):
     N = w_dim
-    dw = wp * 6 / N
-    w = dw * np.arange(-N/2, N/2)
-    dt = 2 * np.pi / (dw * N)
-    t = dt * np.arange(-N/2, N/2)
+    dw = wp * 20 /N
+    T_tot = 20 /dw
+    t = T_tot/N * np.arange(-N/2, N/2)
     
     wct = []
     for i in range(len(t)):
         Bt = magnetic_time_domain(t[i], Bi, DB, wp, Dt)
-        wct.append(wc * (Bt / Bi) - wc)
+        wct.append( wc * (Bt / Bi) - wc)
     
     wct = np.array(wct)
-    DWCF = fft_analysis(wct) #* dt
+    DWCF = fft(wct) * T_tot/N
+    w = fftfreq(N, T_tot/N) * 2 * np.pi
+
     return w, DWCF
 
 def g_fft(w_dim, wc, Bi, DB, wp, Dt, g):
     N = w_dim
-    dw = wp * 6 / N
-    w = dw * np.arange(-N/2, N/2)
-    dt = 2 * np.pi / (dw * N)
-    t = dt * np.arange(-N/2, N/2)
+    dw = wp * 20 /N
+    T_tot = 20 /dw
+    t = T_tot/N * np.arange(-N/2, N/2)
     
     gt = []
     for i in range(len(t)):
@@ -60,7 +63,9 @@ def g_fft(w_dim, wc, Bi, DB, wp, Dt, g):
         gt.append(g * np.sqrt(np.abs(Bt / Bi)) - g)
     
     gt = np.array(gt)
-    DGF = fft_analysis(gt)# * dt
+    DGF = fft(gt) * T_tot/N
+    w = fftfreq(N, T_tot/N) * 2 * np.pi
+
     return w, DGF
 
 # Physical parameters
@@ -81,20 +86,25 @@ e = 1.6e-19
 me = 9.11e-31
 me_GaAs = 0.067 * me
 Bi = me_GaAs * wc / e
-DB = Bi * 1e-5
-wp = wc * np.array([2,1,0.5])
+DB = Bi * 0.5
+wp = wc * np.array([2])
 Dt = 10. / wp
-w_Bmod_dim = 1000
+w_Bmod_dim = 10000
 
 # Perform FFT analyses
 w_Bmod, DWCF = wc_fft(w_Bmod_dim, wc, Bi, DB, wp[0], Dt[0])
 w_Bmod, DGF = g_fft(w_Bmod_dim, wc, Bi, DB, wp[0], Dt[0], g)
 
+ft = []
+for i in range(len(w_Bmod)):
+    ft.append((2 * np.pi * Dt[0]**2)**0.5 * np.exp(- (w_Bmod[i] * Dt[0])**2 /2) *DB/Bi *wc )
+    
+
 # Plotting
 plt.figure()
-plt.plot(w_Bmod / 1e12, np.real(DWCF))
+plt.plot(w_Bmod / 1e12, np.abs(DGF))
 plt.xlabel('Angular frequency (THz)')
-plt.ylabel('Coupling strength in frequency domain')
+plt.ylabel('Modified coupling in frequency domain')
 plt.show()
 
 def g_mod_freq(wi, wj):
@@ -219,7 +229,7 @@ def MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w
 
 # Parameters
 
-w_dim = 500
+w_dim = 1000
 w = wc * np.linspace(0, 2, w_dim)
 
 trans_spectra = []
@@ -237,7 +247,6 @@ for i in range(len(wp)):
 
     print('hi')
     plt.plot(w / THz, spectra_B_on[1,:],label='wp='+str(wp[i]/wc)+'wc')
-    #plt.plot(w / THz, spectra_B_off[1,:],label='wp='+str(wp[i]/wc)+'wc')
 
 plt.legend()
 plt.xlabel('Frequency (THz)')
@@ -245,4 +254,3 @@ plt.ylabel('Transmission Spectra')
 plt.title('Transmission Spectra vs Frequency')
 plt.grid()
 plt.show()
-
