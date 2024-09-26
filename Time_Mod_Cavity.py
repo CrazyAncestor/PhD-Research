@@ -104,7 +104,7 @@ for i in range(len(w_Bmod)):
 plt.figure()
 plt.plot(w_Bmod / 1e12, np.abs(DGF))
 plt.xlabel('Angular frequency (THz)')
-plt.ylabel('Modified coupling in frequency domain')
+plt.ylabel('Modulated Rabi-frequency amp in freq-domain')
 plt.show()
 
 def g_mod_freq(wi, wj):
@@ -246,7 +246,16 @@ for i in range(len(wp)):
                                         Dt=Dt[i])
 
     print('hi')
+    spectra_B_off = MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, 
+                                        turn_on_ext_B=0, 
+                                        w_Bmod_dim=w_Bmod_dim, 
+                                        Bi=Bi, 
+                                        DB=DB, 
+                                        wp=wp[i], 
+                                        Dt=Dt[i])
+    print('hi')
     plt.plot(w / THz, spectra_B_on[1,:],label='wp='+str(wp[i]/wc)+'wc')
+    plt.plot(w / THz, spectra_B_off[1,:],label='No modulation')
 
 plt.legend()
 plt.xlabel('Frequency (THz)')
