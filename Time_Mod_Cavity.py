@@ -24,6 +24,8 @@ def magnetic_time_domain(t, Bi, DB, wp, Dt):
     
     #   Pulse
     #Bt =  DB * np.cos(wp * t) * np.exp(-t**2 / (2 * Dt**2) ) + Bi
+    #   Continuous wave
+    #Bt =  DB * np.cos(wp * t)  + Bi
     return Bt
 
 def Hopfield_Matrix(w, wk, wc, g, Ga, Gb, Gc):
@@ -86,8 +88,8 @@ e = 1.6e-19
 me = 9.11e-31
 me_GaAs = 0.067 * me
 Bi = me_GaAs * wc / e
-DB = Bi * 0.05
-wp = wc * np.array([2])
+DB = Bi * 0.5
+wp = wc * np.array([0.5])
 Dt = 10. / wp
 w_Bmod_dim = 10000
 
@@ -204,7 +206,7 @@ def Time_Mod_Matrix(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B):
 
     H = np.linalg.inv(G)
 
-    plt.imshow(np.abs(H), cmap='viridis', aspect='auto')  # You can choose other colormaps
+    plt.imshow(np.abs(G), cmap='viridis', aspect='auto')  # You can choose other colormaps
     plt.colorbar()  # Show color scale
     plt.title('Matrix Heatmap')
     plt.xlabel('Columns')
@@ -239,9 +241,33 @@ def MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w
     spectra = np.array([w, tran, reflec, absp])
     return spectra
 
+def THz_spec(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w_Bmod_dim, Bi, DB, wp, Dt):
+    global DWCF, DGF, w_Bmod
+    w_Bmod, DWCF = wc_fft(w_Bmod_dim, wc, Bi, DB, wp, Dt)
+    w_Bmod, DGF = g_fft(w_Bmod_dim, wc, Bi, DB, wp, Dt, g)
+    
+    inc_spec = []
+    
+    for i in range(len(w)):
+        u = w[i]/(0.4*THz)
+        inc_spec.append(np.exp(-(u-1)**2))
+
+    inc_spec = np.array(inc_spec)
+    tr_spec = []
+
+    M = Time_Mod_Matrix(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B)
+
+    for i in range(len(w)):
+        idx = i * 3
+        tr = M[idx + 2, ::3]  # Adjusted for zero-based indexing
+        tr_spec.append(np.abs(np.dot(tr,inc_spec))**2)
+
+
+    return tr_spec
+
 # Parameters
 
-w_dim = 1000
+w_dim = 3000
 w = wc * np.linspace(0, 2, w_dim)
 
 trans_spectra = []
@@ -249,7 +275,7 @@ trans_spectra = []
 # Plotting
 plt.figure()
 for i in range(len(wp)):
-    spectra_B_on = MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, 
+    """spectra_B_on = MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, 
                                         turn_on_ext_B=1, 
                                         w_Bmod_dim=w_Bmod_dim, 
                                         Bi=Bi, 
@@ -264,10 +290,26 @@ for i in range(len(wp)):
                                         Bi=Bi, 
                                         DB=DB, 
                                         wp=wp[i], 
+                                        Dt=Dt[i])"""
+    spectra_B_on = THz_spec(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, 
+                                        turn_on_ext_B=1, 
+                                        w_Bmod_dim=w_Bmod_dim, 
+                                        Bi=Bi, 
+                                        DB=DB, 
+                                        wp=wp[i], 
+                                        Dt=Dt[i])
+
+    print('hi')
+    spectra_B_off = THz_spec(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, 
+                                        turn_on_ext_B=0, 
+                                        w_Bmod_dim=w_Bmod_dim, 
+                                        Bi=Bi, 
+                                        DB=DB, 
+                                        wp=wp[i], 
                                         Dt=Dt[i])
     print('hi')
-    plt.plot(w / THz, spectra_B_on[1,:],label=r'$\omega_p$='+str(wp[i]/wc)+r'$\omega_c$')
-    plt.plot(w / THz, spectra_B_off[1,:],label='No modulation')
+    plt.plot(w / THz, spectra_B_on,label=r'$\omega_p$='+str(wp[i]/wc)+r'$\omega_c$')
+    plt.plot(w / THz, spectra_B_off,label='No modulation')
 
 plt.legend()
 plt.xlabel('Frequency (THz)')
