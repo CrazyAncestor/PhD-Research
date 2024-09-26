@@ -103,8 +103,8 @@ for i in range(len(w_Bmod)):
 # Plotting
 plt.figure()
 plt.plot(w_Bmod / 1e12, np.abs(DGF))
-plt.xlabel('Angular frequency (THz)')
-plt.ylabel('Modulated Rabi-frequency amp in freq-domain')
+plt.xlabel(r'$\omega$ (THz)')
+plt.ylabel(r'$\tilde{\Omega}_{Rabi, mod}(\omega)$')
 plt.show()
 
 def g_mod_freq(wi, wj):
@@ -254,7 +254,7 @@ for i in range(len(wp)):
                                         wp=wp[i], 
                                         Dt=Dt[i])
     print('hi')
-    plt.plot(w / THz, spectra_B_on[1,:],label='wp='+str(wp[i]/wc)+'wc')
+    plt.plot(w / THz, spectra_B_on[1,:],label=r'$\omega_p$='+str(wp[i]/wc)+r'$\omega_c$')
     plt.plot(w / THz, spectra_B_off[1,:],label='No modulation')
 
 plt.legend()
