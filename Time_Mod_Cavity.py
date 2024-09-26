@@ -86,7 +86,7 @@ e = 1.6e-19
 me = 9.11e-31
 me_GaAs = 0.067 * me
 Bi = me_GaAs * wc / e
-DB = Bi * 0.5
+DB = Bi * 0.05
 wp = wc * np.array([2])
 Dt = 10. / wp
 w_Bmod_dim = 10000
@@ -127,6 +127,7 @@ def init_G(N, w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C):
         Gu = Hopfield_Matrix(w[i], wk, wc, g, Gamma_A, Gamma_B, Gamma_C)
         m = 4 * i
         G[m:m + 4, m:m + 4] = Gu
+        
     return G
 
 def Modulated_Hopfield_Matrix(wi, wj, dw):
@@ -192,14 +193,24 @@ def Time_Mod_Matrix(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B):
 
     G = init_G(N, w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C)
 
+    
+
     if turn_on_ext_B:
         G_mod = Mod_G(N, w, dw)
 
         G += G_mod  # Element-wise addition
+
     
 
     H = np.linalg.inv(G)
-    
+
+    plt.imshow(np.abs(H), cmap='viridis', aspect='auto')  # You can choose other colormaps
+    plt.colorbar()  # Show color scale
+    plt.title('Matrix Heatmap')
+    plt.xlabel('Columns')
+    plt.ylabel('Rows')
+    plt.show()
+
     M = final_M(N, H, au, bu)
     #np.savetxt('SPEC_MATRIX.csv', M, delimiter=',')  # Save the matrix as CSV
     return M
@@ -214,6 +225,7 @@ def MATRIX_tra_spectra(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w
     absp = []
 
     M = Time_Mod_Matrix(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B)
+
 
     for i in range(len(w)):
         idx = i * 3
