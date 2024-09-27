@@ -2,6 +2,7 @@ import numpy as np
 from scipy.fft import fft, fftfreq
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+from scipy.sparse.linalg import inv
 
 # Assuming DGF and w_Bmod are defined globally or passed as arguments
 DGF = None  # Placeholder, set this according to your program
@@ -25,7 +26,7 @@ def magnetic_time_domain(t, Bi, DB, wp, Dt):
     #   Pulse
     #Bt =  DB * np.cos(wp * t) * np.exp(-t**2 / (2 * Dt**2) ) + Bi
     #   Continuous wave
-    #Bt =  DB * np.cos(wp * t)  + Bi
+    Bt =  DB * np.cos(wp * t)  + Bi
     return Bt
 
 def Hopfield_Matrix(w, wk, wc, g, Ga, Gb, Gc):
@@ -89,7 +90,7 @@ me = 9.11e-31
 me_GaAs = 0.067 * me
 Bi = me_GaAs * wc / e
 DB = Bi * 0.5
-wp = wc * np.array([0.5])
+wp = wc * np.array([2])
 Dt = 10. / wp
 w_Bmod_dim = 10000
 
@@ -162,6 +163,45 @@ def Mod_G(N, w, dw):
                 
     return G_mod
 
+def Heaviside_Mod_G(w, g, wc):
+    Bi = 1
+    DB = 0.5
+
+    dg = g * np.sqrt(np.abs( (Bi + DB) / Bi)) - g
+    dwc = wc *  ((Bi + DB) / Bi) - wc
+
+    dg = dg * 0.5
+    dwc = dwc * 0.5
+    
+    DG = np.array([[0, 1j * dg, 0, -1j * dg],
+                   [-1j * dg, dwc, -1j * dg, 0],
+                   [0, -1j * dg, 0, 1j * dg],
+                   [-1j * dg, 0, -1j * dg, -dwc]], dtype=complex)
+    
+    N = len(w)
+    G_mod = np.zeros((4 * N, 4 * N), dtype=complex)
+
+    for i in range(N):
+        for j in range(N):
+            m = 4 * i
+            n = 4 * j
+            G_mod[m:m + 4, n:n + 4] = DG
+                
+    return G_mod
+
+def inverse_reduced_matrix(G):
+    N = len(G)//4
+    H = np.zeros((4 * N, 4 * N), dtype=complex)
+    for i in range(N):
+        m = 4 * i
+        GU = G[m:m + 4, m:m + 4]
+        HU = np.linalg.inv(GU)
+        H[m:m + 4, m:m + 4] = HU
+
+    return H
+
+
+
 def final_M(N, H, au, bu):
     M = np.zeros((3 * N, 3 * N), dtype=complex)
 
@@ -199,12 +239,13 @@ def Time_Mod_Matrix(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B):
 
     if turn_on_ext_B:
         G_mod = Mod_G(N, w, dw)
+        #G_mod = Heaviside_Mod_G(w, g, wc)
 
         G += G_mod  # Element-wise addition
 
-    
-
     H = np.linalg.inv(G)
+    #H = inverse_reduced_matrix(G)
+
 
     plt.imshow(np.abs(G), cmap='viridis', aspect='auto')  # You can choose other colormaps
     plt.colorbar()  # Show color scale
@@ -267,7 +308,7 @@ def THz_spec(w, wk, wc, g, Gamma_A, Gamma_B, Gamma_C, turn_on_ext_B, w_Bmod_dim,
 
 # Parameters
 
-w_dim = 3000
+w_dim = 1000
 w = wc * np.linspace(0, 2, w_dim)
 
 trans_spectra = []
