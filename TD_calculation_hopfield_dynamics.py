@@ -4,16 +4,16 @@ from scipy.integrate import solve_ivp
 from scipy.integrate import odeint
 
 # Parameters for oscillator 1
-Gamma_a = 0.1   # damping coefficient of oscillator 1
-k1 = 2.0j  # spring constant of oscillator 1 (imaginary)
+Gamma_a = 0.01   # damping coefficient of oscillator 1
+wk = 1.0j  # spring constant of oscillator 1 (imaginary)
 
 # Parameters for oscillator 2
-Gamma_b = 0.1   # damping coefficient of oscillator 2
-k2 = 0.1j  # spring constant of oscillator 2 (imaginary)
+Gamma_b = 0.01   # damping coefficient of oscillator 2
+wc = 1.0j  # spring constant of oscillator 2 (imaginary)
 
 # Coupling constants (real for interaction)
-g = 0.1j  # coupling constant from oscillator 2 to 1
-gp = -0.1j  # coupling constant from oscillator 1 to 2
+g = 0.2  # coupling constant from oscillator 2 to 1
+gp = -0.2  # coupling constant from oscillator 1 to 2
 
 # Parameters for the input
 A = 10.0
@@ -28,8 +28,8 @@ def input_langevin_force(t):
 def coupled_oscillators_a(y, t):
     a, b = y
     fa = input_langevin_force(t)
-    dadt = -Gamma_a * a + k1 * a + g * np.cos(wp*t) * b + fa
-    dbdt = -Gamma_b * b + k2 * b + gp * np.cos(wp*t) * a
+    dadt = -Gamma_a * a + wk * a + g * (1+ 0.5*np.cos(0.*t)*(np.heaviside(t-50, 1))) * b + fa
+    dbdt = -Gamma_b * b + wc * b + gp * (1+ 0.5*np.cos(0.*t)*(np.heaviside(t-50, 1)))* a
     return np.array([dadt, dbdt])
 
 def rk4(deriv, y0, t):
@@ -62,7 +62,7 @@ def rk4(deriv, y0, t):
 initial_conditions = [0.0 + 0.0j, 0.0 + 0.0j]
 
 # Time span for the simulation
-t_span = (-5, 50)  # from t=0 to t=20 seconds
+t_span = (0, 1000)  # from t=0 to t=20 seconds
 t_eval = np.linspace(*t_span, 10000)  # time points to evaluate the solution
 
 # Solve the ODE
@@ -86,31 +86,35 @@ plt.ylabel('Position (a)')
 plt.legend()
 plt.grid()
 
-"""# Velocity vs Time
-plt.subplot(2, 2, 2)
-plt.plot(t, v1, label='Oscillator 1 (v)')
-plt.plot(t, v2, label='Oscillator 2 (v)', linestyle='--', color='r')
-plt.title('Velocity vs Time in a Basis')
+plt.tight_layout()
+plt.show()
+
+
+
+# Plotting
+plt.figure(figsize=(12, 10))
+
+A = np.fft.fft(a)
+B = np.fft.fft(b)
+
+# Compute the frequencies
+dt = t_eval[1] - t_eval[0]  # Sampling interval
+n = len(a)  # Length of the signal
+freqs = np.fft.fftfreq(n, d=dt)
+
+# Position vs Time
+#plt.subplot(2, 2, 1)
+#plt.plot(freqs, A, label='Oscillator 1 (a)')
+f = freqs[0:500]
+bf =  B[0:500]
+
+plt.plot(f, bf, label='Oscillator 2 (B)')
+
+plt.title('Position vs Time in a Basis')
 plt.xlabel('Time (s)')
-plt.ylabel('Velocity (v)')
+plt.ylabel('Position (a)')
 plt.legend()
 plt.grid()
-
-# Phase Space for Oscillator 1
-plt.subplot(2, 2, 3)
-plt.plot(a, v1)
-plt.title('Phase Space of Oscillator 1')
-plt.xlabel('Position (a)')
-plt.ylabel('Velocity (v)')
-plt.grid()
-
-# Phase Space for Oscillator 2
-plt.subplot(2, 2, 4)
-plt.plot(b, v2, color='r')
-plt.title('Phase Space of Oscillator 2')
-plt.xlabel('Position (a)')
-plt.ylabel('Velocity (v)')
-plt.grid()"""
 
 plt.tight_layout()
 plt.show()
