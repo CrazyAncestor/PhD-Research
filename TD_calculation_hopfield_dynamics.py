@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.integrate import solve_ivp
-from scipy.integrate import odeint
+from scipy.signal import find_peaks
 
 # Parameters for oscillator 1
 Gamma_a = 0.01   # damping coefficient of oscillator 1
@@ -19,17 +18,24 @@ gp = -0.2  # coupling constant from oscillator 1 to 2
 A = 10.0
 wp = 10
 tp = 2*np.pi/wp*2
-print(tp)
+
+# Parameters for the modulation
+T_start_mod = 50
+w_mod = 0.05
+amp_mod = 0.5
+
+def mod_function(t,amp_mod,w_mod,start_time):
+    return 1+ amp_mod*np.cos(w_mod*t)*(np.heaviside(t-start_time, 1))
 
 def input_langevin_force(t):
     return A * np.exp(1j*wp*t) * np.exp(-(t/tp)**2/2) * np.heaviside(t, 1)
 
-# Define the differential equations in a, a^+
+# Define the differential equations in a, b
 def coupled_oscillators_a(y, t):
     a, b = y
     fa = input_langevin_force(t)
-    dadt = -Gamma_a * a + wk * a + g * (1+ 0.5*np.cos(0.*t)*(np.heaviside(t-50, 1))) * b + fa
-    dbdt = -Gamma_b * b + wc * b + gp * (1+ 0.5*np.cos(0.*t)*(np.heaviside(t-50, 1)))* a
+    dadt = -Gamma_a * a + wk * a + g * mod_function(t,amp_mod,w_mod,T_start_mod) * b + fa
+    dbdt = -Gamma_b * b + wc * b + gp * mod_function(t,amp_mod,w_mod,T_start_mod) * a
     return np.array([dadt, dbdt])
 
 def rk4(deriv, y0, t):
@@ -66,7 +72,6 @@ t_span = (0, 1000)  # from t=0 to t=20 seconds
 t_eval = np.linspace(*t_span, 10000)  # time points to evaluate the solution
 
 # Solve the ODE
-#solution = solve_ivp(coupled_oscillators_a, t_span, initial_conditions, t_eval=t_eval)
 solution = rk4(coupled_oscillators_a, initial_conditions, t_eval)
 
 # Extract the results
@@ -78,43 +83,110 @@ plt.figure(figsize=(12, 10))
 
 # Position vs Time
 #plt.subplot(2, 2, 1)
-plt.plot(t_eval, np.real(a), label='Oscillator 1 (a)')
-plt.plot(t_eval, np.real(b), label='Oscillator 2 (a)', linestyle='--')
-plt.title('Position vs Time in a Basis')
+plt.plot(t_eval, np.real(a), label='a')
+plt.plot(t_eval, np.real(b), label='b', linestyle='--')
+plt.title('Amplitude vs Time')
 plt.xlabel('Time (s)')
-plt.ylabel('Position (a)')
+plt.ylabel('Amplitude')
 plt.legend()
 plt.grid()
 
 plt.tight_layout()
 plt.show()
 
+def plot_peaks(t, x, labels=None, max_distance=0.5, xlabel='Time', ylabel='Values', title='Selective Plot Around Peaks'):
+    """
+    Plots the largest 2 peaks of each row in x against t, focusing on the significant peaks of each row.
 
+    Parameters:
+    - t: Array-like, the x-axis values (time).
+    - x: 2D Array-like, where each row represents different data to plot against t.
+    - labels: List of strings, labels for each row in x (default is None).
+    - max_distance: Float, maximum distance from peaks to consider for plotting.
+    - xlabel: String, label for the x-axis.
+    - ylabel: String, label for the y-axis.
+    - title: String, title of the plot.
+    """
+    plt.figure(figsize=(10, 5))
 
-# Plotting
-plt.figure(figsize=(12, 10))
+    # Loop through each row in x
+    for i, row in enumerate(x):
+        # Filter out data where t < 0
+        valid_mask = t >= 0
+        t_filtered = t[valid_mask]
+        row_filtered = row[valid_mask]
 
-A = np.fft.fft(a)
-B = np.fft.fft(b)
+        # Find peaks in filtered row
+        peaks, properties = find_peaks(row_filtered)
+
+        # Get the heights of the peaks
+        peak_heights = row_filtered[peaks]
+
+        # Get indices of the largest 2 peaks
+        if len(peak_heights) > 0:
+            largest_peaks_indices = np.argsort(peak_heights)[-2:]  # Indices of the largest 2 peaks
+            largest_peaks = peaks[largest_peaks_indices]  # Corresponding peak indices
+
+            # Create a mask for valid indices based on the max distance from largest peaks
+            valid_indices = set()
+
+            for peak in largest_peaks:
+                peak_time = t_filtered[peak]
+                # Find indices of t within max_distance from the peak
+                within_distance = np.abs(t_filtered - peak_time) <= max_distance
+                valid_indices.update(np.where(within_distance)[0])
+
+            # Convert set to sorted list
+            valid_indices = sorted(valid_indices)
+
+            # Create subsets of t and row for plotting
+            t_plot = t_filtered[valid_indices]
+            row_plot = row_filtered[valid_indices]
+
+            # Plot each row with a label if provided
+            label = labels[i] if labels is not None and i < len(labels) else None
+            plt.plot(t_plot, row_plot, marker='o', linestyle='-', markersize=3, label=label)
+
+    # Finalize the plot
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid()
+    plt.legend()  # Show legend if labels are provided
+    plt.show()
+
+# Fourier Transform
+def clean_time_series(t, x, time_range):
+    """
+    Removes elements from t and x that fall within a specified time range.
+
+    Parameters:
+    - t: Array-like, the x-axis values (time).
+    - x: Array-like, the y-axis values (data).
+    - time_range: Tuple (start, end), the time range to remove from t and x.
+
+    Returns:
+    - t_clean: Array-like, cleaned time values with specified range removed.
+    - x_clean: Array-like, cleaned data values corresponding to t_clean.
+    """
+    # Create a mask to filter out elements within the time range
+    mask = (t > time_range[0]) & (t < time_range[1])
+
+    # Apply the mask to t and x
+    t_clean = t[mask]
+    x_clean = x[mask]
+
+    return t_clean, x_clean
+
+t_clean, a_clean = clean_time_series(t_eval, a, [T_start_mod,1000])
+t_clean, b_clean = clean_time_series(t_eval, b, [T_start_mod,1000])
+
+A = np.abs(np.fft.fft(a_clean))**2
+B = np.abs(np.fft.fft(b_clean))**2
 
 # Compute the frequencies
-dt = t_eval[1] - t_eval[0]  # Sampling interval
-n = len(a)  # Length of the signal
+dt = t_clean[1] - t_clean[0]  # Sampling interval
+n = len(t_clean)  # Length of the signal
 freqs = np.fft.fftfreq(n, d=dt)
 
-# Position vs Time
-#plt.subplot(2, 2, 1)
-#plt.plot(freqs, A, label='Oscillator 1 (a)')
-f = freqs[0:500]
-bf =  B[0:500]
-
-plt.plot(f, bf, label='Oscillator 2 (B)')
-
-plt.title('Position vs Time in a Basis')
-plt.xlabel('Time (s)')
-plt.ylabel('Position (a)')
-plt.legend()
-plt.grid()
-
-plt.tight_layout()
-plt.show()
+plot_peaks(freqs, np.array([A,B]), labels=[r'$a^{+}a$',r'$b^{+}b$'], max_distance=0.2, xlabel='freq (Hz)', ylabel='FFT Spectrum', title='FFT Spectrum')
