@@ -4,15 +4,15 @@ from scipy.signal import find_peaks
 
 # Parameters for oscillator 1
 Gamma_a = 0.01   # damping coefficient of oscillator 1
-wk = 1.0j  # spring constant of oscillator 1 (imaginary)
+wk = 1.0  # spring constant of oscillator 1 (imaginary)
 
 # Parameters for oscillator 2
 Gamma_b = 0.01   # damping coefficient of oscillator 2
-wc = 1.0j  # spring constant of oscillator 2 (imaginary)
+wc = 1.0  # spring constant of oscillator 2 (imaginary)
 
 # Coupling constants (real for interaction)
-g = 0.2  # coupling constant from oscillator 2 to 1
-gp = -0.2  # coupling constant from oscillator 1 to 2
+g = -0.2  # coupling constant from oscillator 2 to 1
+gp = 0.2  # coupling constant from oscillator 1 to 2
 
 # Parameters for the input
 A = 10.0
@@ -21,8 +21,8 @@ tp = 2*np.pi/wp*2
 
 # Parameters for the modulation
 T_start_mod = 50
-w_mod = 0.05
-amp_mod = 0.5
+w_mod = 0.5
+amp_mod = 0.
 
 def mod_function(t,amp_mod,w_mod,start_time):
     return 1+ amp_mod*np.cos(w_mod*t)*(np.heaviside(t-start_time, 1))
@@ -34,8 +34,8 @@ def input_langevin_force(t):
 def coupled_oscillators_a(y, t):
     a, b = y
     fa = input_langevin_force(t)
-    dadt = -Gamma_a * a + wk * a + g * mod_function(t,amp_mod,w_mod,T_start_mod) * b + fa
-    dbdt = -Gamma_b * b + wc * b + gp * mod_function(t,amp_mod,w_mod,T_start_mod) * a
+    dadt = -Gamma_a * a - wk * 1j * a + g  * b + fa
+    dbdt = -Gamma_b * b - wc * 1j * mod_function(t,amp_mod,w_mod,T_start_mod) * b + gp  * a
     return np.array([dadt, dbdt])
 
 def rk4(deriv, y0, t):
@@ -79,14 +79,13 @@ a = solution[:, 0]
 b = solution[:, 1]
 
 # Plotting
-plt.figure(figsize=(12, 10))
+plt.figure(figsize=(10, 5))
 
 # Position vs Time
-#plt.subplot(2, 2, 1)
-plt.plot(t_eval, np.real(a), label='a')
-plt.plot(t_eval, np.real(b), label='b', linestyle='--')
+plt.plot(t_eval[0:3000], np.real(a[0:3000]), label='<a>')
+plt.plot(t_eval[0:3000], np.real(b[0:3000]), label='<b>', linestyle='--')
 plt.title('Amplitude vs Time')
-plt.xlabel('Time (s)')
+plt.xlabel('Time (ps)')
 plt.ylabel('Amplitude')
 plt.legend()
 plt.grid()
@@ -145,6 +144,11 @@ def plot_peaks(t, x, labels=None, max_distance=0.5, xlabel='Time', ylabel='Value
 
             # Plot each row with a label if provided
             label = labels[i] if labels is not None and i < len(labels) else None
+            
+            # Assuming t_plot and row_plot are your arrays
+            t_plot, row_plot = zip(*sorted(zip(t_plot, row_plot)))
+
+            # Now plot the sorted arrays
             plt.plot(t_plot, row_plot, marker='o', linestyle='-', markersize=3, label=label)
 
     # Finalize the plot
@@ -187,6 +191,6 @@ B = np.abs(np.fft.fft(b_clean))**2
 # Compute the frequencies
 dt = t_clean[1] - t_clean[0]  # Sampling interval
 n = len(t_clean)  # Length of the signal
-freqs = np.fft.fftfreq(n, d=dt)
+freqs = -(np.fft.fftfreq(n, d=dt))
 
-plot_peaks(freqs, np.array([A,B]), labels=[r'$a^{+}a$',r'$b^{+}b$'], max_distance=0.2, xlabel='freq (Hz)', ylabel='FFT Spectrum', title='FFT Spectrum')
+plot_peaks(freqs, np.array([A,B]), labels=[r'$<a^{\dagger}a>$',r'$<b^{\dagger}b>$'], max_distance=0.2, xlabel='freq (THz)', ylabel='FFT Spectrum', title='FFT Spectrum')
