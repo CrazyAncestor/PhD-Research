@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
 # Parameters for oscillator 1
-Gamma_a = 0.01   # damping coefficient of oscillator 1
+Gamma_a = 0.03   # damping coefficient of oscillator 1
 omega_a = 1.0  # spring constant of oscillator 1 (imaginary)
 
 # Parameters for oscillator 2
@@ -11,7 +11,7 @@ Gamma_b = 0.02   # damping coefficient of oscillator 2
 omega_b = 1.0  # spring constant of oscillator 2 (imaginary)
 
 # Coupling constants (real for interaction)
-g = 0.2  # coupling constant
+g = 0.  # coupling constant
 
 # Parameters for the temperature and Langevin force
 kB = 1.0
@@ -25,16 +25,20 @@ Time_tot = 10000
 Step_tot = 100000
 
 # Modulation frequencies to test
-omega_mod_values = [ 0.1, 0.2, 0.5, 1.0, 2.0]
+omega_mod_values = [0.5, 1.0, 2.0, 5.0, 10.0]
+T_long = 100
 amp_mod = 0.5
 
 def mod_function(t, amp_mod, omega_mod):
+    #return 1 + amp_mod * np.cos(omega_mod * t)
     return 1 + amp_mod * np.cos(omega_mod * t)
 
 def Langevin_force(t, sigma):
-    r = np.random.normal(0, sigma)
-    theta = np.random.normal(0, np.pi * 2)
-    return r * np.exp(-1j * theta)
+    ax = np.random.normal(-sigma, sigma)*0.5
+    ay = np.random.normal(-sigma, sigma)*0.5
+    r = (ax**2+ay**2)*0.5
+    theta = np.pi*2* np.random.uniform(low=0.0, high=1.0, size=None)
+    return r* np.exp(-1j*theta)
 
 def coupled_oscillators_a(y, t, dt, omega_mod):
     a, b = y
