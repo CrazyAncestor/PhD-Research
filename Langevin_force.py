@@ -57,9 +57,9 @@ for omega_mod in omega_mod_values:
     axs[0].grid()
 
     # Subplot for spectrum around the peak
-    axs[1].plot(frequency[indices], np.abs(position_spectrum[indices]), color='green')
+    axs[1].plot(frequency[indices]*2*np.pi, np.abs(position_spectrum[indices]), color='green')
     axs[1].set_title('Position Spectrum Near the Peak')
-    axs[1].set_xlabel('Frequency')
+    axs[1].set_xlabel(r'Angular Frequency $\omega$')
     axs[1].set_ylabel('Magnitude')
     axs[1].grid()
 
