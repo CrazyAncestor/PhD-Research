@@ -11,12 +11,12 @@ Gamma_b = 0.02   # damping coefficient of oscillator 2
 omega_b = 1.0  # spring constant of oscillator 2 (imaginary)
 
 # Coupling constants (real for interaction)
-g = 0.  # coupling constant
+g = 0.0  # coupling constant
 
 # Parameters for the temperature and Langevin force
 kB = 1.0
 Temp = 1.0        # temperature
-beta = 1.0 / (Temp)  # Inverse temperature
+beta = 1.0 / Temp  # Inverse temperature
 sigma_a = np.sqrt(2 * Gamma_a * kB * Temp)  # Strength of Langevin force
 sigma_b = np.sqrt(2 * Gamma_b * kB * Temp)  # Strength of Langevin force
 
@@ -30,36 +30,36 @@ T_long = 100
 amp_mod = 0.5
 
 def mod_function(t, amp_mod, omega_mod):
-    #return 1 + amp_mod * np.cos(omega_mod * t)
     return 1 + amp_mod * np.cos(omega_mod * t)
 
-def Langevin_force(t, sigma):
-    ax = np.random.normal(-sigma, sigma)*0.5
-    ay = np.random.normal(-sigma, sigma)*0.5
-    r = (ax**2+ay**2)*0.5
-    theta = np.pi*2* np.random.uniform(low=0.0, high=1.0, size=None)
-    return r* np.exp(-1j*theta)
+def Langevin_force(sigma, size):
+    ax = np.random.normal(0, sigma, size) * 0.5
+    ay = np.random.normal(0, sigma, size) * 0.5
+    r = (ax**2 + ay**2) * 0.5
+    theta = 2 * np.pi * np.random.uniform(0, 1, size)
+    return r * np.exp(-1j * theta)
 
-def coupled_oscillators_a(y, t, dt, omega_mod):
+def coupled_oscillators_a(y, t, dt, omega_mod, fa, fb):
     a, b = y
-    fa = Langevin_force(t, sigma_a / np.sqrt(dt))
-    fb = Langevin_force(t, sigma_b / np.sqrt(dt))
     dadt = -Gamma_a * a - omega_a * 1j * a - g * 1j * b + fa
     dbdt = -Gamma_b * b - omega_b * mod_function(t, amp_mod, omega_mod) * 1j * b - g * 1j * a + fb
     return np.array([dadt, dbdt])
 
 def rk4(deriv, y0, t, omega_mod):
     n = len(t)  # number of time steps
-    y = np.zeros((n, len(y0))) * (0.0 + 0.0j)  # initialize solution array
+    y = np.zeros((n, len(y0)), dtype=np.complex128)  # initialize solution array
     y[0] = y0  # set initial conditions
 
+    dt = np.diff(t)  # time steps
+    fa = Langevin_force(sigma_a / np.sqrt(dt), n - 1)
+    fb = Langevin_force(sigma_b / np.sqrt(dt), n - 1)
+
     for i in range(1, n):
-        dt = t[i] - t[i-1]  # time step
-        k1 = dt * deriv(y[i-1], t[i-1], dt, omega_mod)
-        k2 = dt * deriv(y[i-1] + 0.5 * k1, t[i-1] + 0.5 * dt, dt, omega_mod)
-        k3 = dt * deriv(y[i-1] + 0.5 * k2, t[i-1] + 0.5 * dt, dt, omega_mod)
-        k4 = dt * deriv(y[i-1] + k3, t[i-1] + dt, dt, omega_mod)
-        y[i] = y[i-1] + (k1 + 2 * k2 + 2 * k3 + k4) / 6  # update solution
+        k1 = dt[i - 1] * deriv(y[i - 1], t[i - 1], dt[i - 1], omega_mod, fa[i - 1], fb[i - 1])
+        k2 = dt[i - 1] * deriv(y[i - 1] + 0.5 * k1, t[i - 1] + 0.5 * dt[i - 1], dt[i - 1], omega_mod, fa[i - 1], fb[i - 1])
+        k3 = dt[i - 1] * deriv(y[i - 1] + 0.5 * k2, t[i - 1] + 0.5 * dt[i - 1], dt[i - 1], omega_mod, fa[i - 1], fb[i - 1])
+        k4 = dt[i - 1] * deriv(y[i - 1] + k3, t[i - 1] + dt[i - 1], dt[i - 1], omega_mod, fa[i - 1], fb[i - 1])
+        y[i] = y[i - 1] + (k1 + 2 * k2 + 2 * k3 + k4) / 6  # update solution
 
     return y
 
@@ -67,7 +67,7 @@ def rk4(deriv, y0, t, omega_mod):
 initial_conditions = [0.0 + 0.0j, 0.0 + 0.0j]
 
 # Time span for the simulation
-t_eval = np.linspace(0, Time_tot, Step_tot) 
+t_eval = np.linspace(0, Time_tot, Step_tot)
 
 # Loop over modulation frequencies
 for omega_mod in omega_mod_values:
