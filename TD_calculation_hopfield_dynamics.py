@@ -11,7 +11,7 @@ Gamma_b = 0.01   # damping coefficient of oscillator 2
 wc = 1.0  # spring constant of oscillator 2 (imaginary)
 
 # Coupling constants (real for interaction)
-g = -0.2  # coupling constant from oscillator 2 to 1
+g = 0.2  # coupling constant from oscillator 2 to 1
 gp = 0.2  # coupling constant from oscillator 1 to 2
 
 # Parameters for the input
@@ -22,7 +22,7 @@ tp = 2*np.pi/wp*2
 # Parameters for the modulation
 T_start_mod = 50
 w_mod = 0.5
-amp_mod = 0.
+amp_mod = 0.2
 
 def mod_function(t,amp_mod,w_mod,start_time):
     return 1+ amp_mod*np.cos(w_mod*t)*(np.heaviside(t-start_time, 1))
@@ -34,8 +34,8 @@ def input_langevin_force(t):
 def coupled_oscillators_a(y, t):
     a, b = y
     fa = input_langevin_force(t)
-    dadt = -Gamma_a * a - wk * 1j * a + g  * b + fa
-    dbdt = -Gamma_b * b - wc * 1j * mod_function(t,amp_mod,w_mod,T_start_mod) * b + gp  * a
+    dadt = -Gamma_a * a - wk * 1j * a - g * 1j * b + fa
+    dbdt = -Gamma_b * b - wc * mod_function(t,amp_mod,w_mod,T_start_mod) * 1j * b - g * 1j * a
     return np.array([dadt, dbdt])
 
 def rk4(deriv, y0, t):
