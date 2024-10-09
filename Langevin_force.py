@@ -11,7 +11,8 @@ total_time = 1000.0  # total simulation time
 
 # Derived parameters
 beta = 1.0 / (T)  # Inverse temperature
-sigma = np.sqrt(2 * gamma * k * T / dt)  # Strength of Langevin force
+kB = 1.
+sigma = np.sqrt(2 * gamma * kB * T / dt)  # Strength of Langevin force
 
 # Values of omega_mod to evaluate
 omega_mod_values = [5, 10, 20, 50, 75, 100]
@@ -20,7 +21,7 @@ def rk4_step(position, velocity, t, dt, omega_mod):
     """Perform a single RK4 step."""
     # Define the force function
     def force(position, velocity, t, omega_mod):
-        force_noise = np.random.normal(0, sigma)
+        force_noise = np.random.normal(sigma*(-0.5), sigma*(0.5))
         spring_force = -(k * (1 + 0.1 * np.cos(omega_mod * t))) * position
         damping_force = -gamma * velocity
         return (spring_force + damping_force + force_noise) / m
