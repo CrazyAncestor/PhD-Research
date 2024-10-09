@@ -89,5 +89,5 @@ for omega_mod in omega_mod_values:
 
     # Save the figure
     plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust layout to make space for the main title
-    plt.savefig(f'harmonic_oscillator_omega_mod_{omega_mod}.png')  # Save the figure
+    plt.savefig(f'harmonic_oscillator_omega_mod_{omega_mod}.pdf')  # Save the figure
     plt.close()  # Close the figure to free memory
