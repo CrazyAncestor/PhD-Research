@@ -14,7 +14,35 @@ beta = 1.0 / (T)  # Inverse temperature
 sigma = np.sqrt(2 * gamma * k * T / dt)  # Strength of Langevin force
 
 # Values of omega_mod to evaluate
-omega_mod_values = [10, 20, 50]
+omega_mod_values = [5, 10, 20, 50, 75, 100]
+
+def rk4_step(position, velocity, t, dt, omega_mod):
+    """Perform a single RK4 step."""
+    # Define the force function
+    def force(position, velocity, t, omega_mod):
+        force_noise = np.random.normal(0, sigma)
+        spring_force = -(k * (1 + 0.1 * np.cos(omega_mod * t))) * position
+        damping_force = -gamma * velocity
+        return (spring_force + damping_force + force_noise) / m
+
+    # RK4 coefficients
+    k1_v = force(position, velocity, t, omega_mod)
+    k1_x = velocity
+    
+    k2_v = force(position + 0.5 * k1_x * dt, velocity + 0.5 * k1_v * dt, t + 0.5 * dt, omega_mod)
+    k2_x = velocity + 0.5 * k1_v * dt
+    
+    k3_v = force(position + 0.5 * k2_x * dt, velocity + 0.5 * k2_v * dt, t + 0.5 * dt, omega_mod)
+    k3_x = velocity + 0.5 * k2_v * dt
+    
+    k4_v = force(position + k3_x * dt, velocity + k3_v * dt, t + dt, omega_mod)
+    k4_x = velocity + k3_v * dt
+    
+    # Update position and velocity
+    new_velocity = velocity + (k1_v + 2 * k2_v + 2 * k3_v + k4_v) / 6 * dt
+    new_position = position + (k1_x + 2 * k2_x + 2 * k3_x + k4_x) / 6 * dt
+    
+    return new_position, new_velocity
 
 # Create a figure for subplots
 for omega_mod in omega_mod_values:
@@ -25,23 +53,19 @@ for omega_mod in omega_mod_values:
     velocity = np.zeros(num_steps)
 
     # Initial conditions
-    position[0] = 1.0  # initial position
+    position[0] = 0.0  # initial position
     velocity[0] = 0.0  # initial velocity
 
     # Simulation loop
     for i in range(1, num_steps):
-        # Langevin force with time-dependent spring constant
-        force_noise = np.random.normal(0, sigma)
-        acceleration = -(k * (1 + 0.1 * np.cos(i * dt * omega_mod)) / m) * position[i-1] - (gamma / m) * velocity[i-1] + force_noise
-        velocity[i] = velocity[i-1] + acceleration * dt
-        position[i] = position[i-1] + velocity[i] * dt
+        position[i], velocity[i] = rk4_step(position[i-1], velocity[i-1], time[i-1], dt, omega_mod)
 
     # Compute the Fourier Transform of the position
     frequency = np.fft.fftfreq(num_steps, dt)
     position_spectrum = np.fft.fft(position)
 
     # Focus on the peak region
-    peak_freq_range = (0.0, 2.0)  # Define the frequency range around the peak
+    peak_freq_range = (0.0, 4.0)  # Define the frequency range around the peak
     indices = np.where((frequency >= peak_freq_range[0]) & (frequency <= peak_freq_range[1]))
 
     # Create a new figure for this omega_mod
