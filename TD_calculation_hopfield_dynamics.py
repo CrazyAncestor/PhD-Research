@@ -4,38 +4,47 @@ from scipy.signal import find_peaks
 
 # Parameters for oscillator 1
 Gamma_a = 0.01   # damping coefficient of oscillator 1
-wk = 1.0  # spring constant of oscillator 1 (imaginary)
+wa = 1.0  # spring constant of oscillator 1 (imaginary)
 
 # Parameters for oscillator 2
 Gamma_b = 0.01   # damping coefficient of oscillator 2
-wc = 1.0  # spring constant of oscillator 2 (imaginary)
+wb = 1.0  # spring constant of oscillator 2 (imaginary)
 
 # Coupling constants (real for interaction)
-g = 0.2  # coupling constant from oscillator 2 to 1
-gp = 0.2  # coupling constant from oscillator 1 to 2
+g = 0.2  # coupling constant(Rabi Oscillation frequency)
 
-# Parameters for the input
-A = 10.0
-wp = 10
-tp = 2*np.pi/wp*2
+# Parameters for the input probe pulse
+A = 100.0    # Amplitude of the probe pulse
+wp = 1      # Central frequency of the probe pulse
+tp = 6   # Time duration fo the probe pulse
 
-# Parameters for the modulation
-T_start_mod = 50
-w_mod = 0.5
-amp_mod = 0.2
+# Simulation time parameter
+T_tot = 1000    # total time: unit ps
+N_tot = 10000   # number of timesteps
 
-def mod_function(t,amp_mod,w_mod,start_time):
-    return 1+ amp_mod*np.cos(w_mod*t)*(np.heaviside(t-start_time, 1))
+def input_probe_pulse_force(t):
+    return A * np.exp(1j * wp * t) * np.exp(-(t / tp) ** 2 / 2)
 
-def input_langevin_force(t):
-    return A * np.exp(1j*wp*t) * np.exp(-(t/tp)**2/2) * np.heaviside(t, 1)
+# Calculate the pulse
+t_pulse = np.linspace(0, tp*5, N_tot)
+pulse = input_probe_pulse_force(t_pulse)
+
+# Plotting the real part of the pulse
+plt.figure(figsize=(10, 6))
+plt.plot(t_pulse, np.real(pulse), label='Real Part of Pulse', color='blue')
+plt.title('Input Probe Pulse Electric Field')
+plt.xlabel('Time (ps)')
+plt.ylabel('Pulse Amplitude')
+plt.grid()
+plt.legend()
+plt.show()
 
 # Define the differential equations in a, b
 def coupled_oscillators_a(y, t):
     a, b = y
-    fa = input_langevin_force(t)
-    dadt = -Gamma_a * a - wk * 1j * a - g * 1j * b + fa
-    dbdt = -Gamma_b * b - wc * mod_function(t,amp_mod,w_mod,T_start_mod) * 1j * b - g * 1j * a
+    fa = input_probe_pulse_force(t)
+    dadt = -Gamma_a * a - wa * 1j * a - g * 1j * b + fa
+    dbdt = -Gamma_b * b - wb * 1j * b - g * 1j * a          #   No significatnt input of the matter reservoir modes
     return np.array([dadt, dbdt])
 
 def rk4(deriv, y0, t):
@@ -68,8 +77,7 @@ def rk4(deriv, y0, t):
 initial_conditions = [0.0 + 0.0j, 0.0 + 0.0j]
 
 # Time span for the simulation
-t_span = (0, 1000)  # from t=0 to t=20 seconds
-t_eval = np.linspace(*t_span, 10000)  # time points to evaluate the solution
+t_eval = np.linspace(0, T_tot, N_tot)  # time points to evaluate the solution
 
 # Solve the ODE
 solution = rk4(coupled_oscillators_a, initial_conditions, t_eval)
@@ -82,8 +90,8 @@ b = solution[:, 1]
 plt.figure(figsize=(10, 5))
 
 # Position vs Time
-plt.plot(t_eval[0:3000], np.real(a[0:3000]), label='<a>')
-plt.plot(t_eval[0:3000], np.real(b[0:3000]), label='<b>', linestyle='--')
+plt.plot(t_eval[0:N_tot//3], np.real(a[0:N_tot//3]), label='<a>')
+plt.plot(t_eval[0:N_tot//3], np.real(b[0:N_tot//3]), label='<b>', linestyle='--')
 plt.title('Amplitude vs Time')
 plt.xlabel('Time (ps)')
 plt.ylabel('Amplitude')
@@ -110,16 +118,11 @@ def plot_peaks(t, x, labels=None, max_distance=0.5, xlabel='Time', ylabel='Value
 
     # Loop through each row in x
     for i, row in enumerate(x):
-        # Filter out data where t < 0
-        valid_mask = t >= 0
-        t_filtered = t[valid_mask]
-        row_filtered = row[valid_mask]
-
         # Find peaks in filtered row
-        peaks, properties = find_peaks(row_filtered)
+        peaks, properties = find_peaks(row)
 
         # Get the heights of the peaks
-        peak_heights = row_filtered[peaks]
+        peak_heights = row[peaks]
 
         # Get indices of the largest 2 peaks
         if len(peak_heights) > 0:
@@ -130,17 +133,17 @@ def plot_peaks(t, x, labels=None, max_distance=0.5, xlabel='Time', ylabel='Value
             valid_indices = set()
 
             for peak in largest_peaks:
-                peak_time = t_filtered[peak]
+                peak_time = t[peak]
                 # Find indices of t within max_distance from the peak
-                within_distance = np.abs(t_filtered - peak_time) <= max_distance
+                within_distance = np.abs(t - peak_time) <= max_distance
                 valid_indices.update(np.where(within_distance)[0])
 
             # Convert set to sorted list
             valid_indices = sorted(valid_indices)
 
             # Create subsets of t and row for plotting
-            t_plot = t_filtered[valid_indices]
-            row_plot = row_filtered[valid_indices]
+            t_plot = t[valid_indices]
+            row_plot = row[valid_indices]
 
             # Plot each row with a label if provided
             label = labels[i] if labels is not None and i < len(labels) else None
@@ -160,37 +163,12 @@ def plot_peaks(t, x, labels=None, max_distance=0.5, xlabel='Time', ylabel='Value
     plt.show()
 
 # Fourier Transform
-def clean_time_series(t, x, time_range):
-    """
-    Removes elements from t and x that fall within a specified time range.
-
-    Parameters:
-    - t: Array-like, the x-axis values (time).
-    - x: Array-like, the y-axis values (data).
-    - time_range: Tuple (start, end), the time range to remove from t and x.
-
-    Returns:
-    - t_clean: Array-like, cleaned time values with specified range removed.
-    - x_clean: Array-like, cleaned data values corresponding to t_clean.
-    """
-    # Create a mask to filter out elements within the time range
-    mask = (t > time_range[0]) & (t < time_range[1])
-
-    # Apply the mask to t and x
-    t_clean = t[mask]
-    x_clean = x[mask]
-
-    return t_clean, x_clean
-
-t_clean, a_clean = clean_time_series(t_eval, a, [T_start_mod,1000])
-t_clean, b_clean = clean_time_series(t_eval, b, [T_start_mod,1000])
-
-A = np.abs(np.fft.fft(a_clean))**2
-B = np.abs(np.fft.fft(b_clean))**2
+A = np.abs(np.fft.fft(a))**2/(T_tot)**2
+B = np.abs(np.fft.fft(b))**2/(T_tot)**2
 
 # Compute the frequencies
-dt = t_clean[1] - t_clean[0]  # Sampling interval
-n = len(t_clean)  # Length of the signal
-freqs = -(np.fft.fftfreq(n, d=dt))
+dt = t_eval[1] - t_eval[0]  # Sampling interval
+n = len(t_eval)  # Length of the signal
+freqs = -np.fft.fftfreq(n, d=dt)    # frequency definition of numpy fft.fftfreq is opposite in sign with our calculation
 
-plot_peaks(freqs, np.array([A,B]), labels=[r'$<a^{\dagger}a>$',r'$<b^{\dagger}b>$'], max_distance=0.2, xlabel='freq (THz)', ylabel='FFT Spectrum', title='FFT Spectrum')
+plot_peaks(freqs*2*np.pi, np.array([A,B]), labels=[r'$S_{<a^{\dagger}a>}(\omega)$',r'$S_{<b^{\dagger}b>}(\omega)$'], max_distance=0.2, xlabel=r'angular frequency $\omega$ (THz)', ylabel=r'FFT Spectrum Intensity S$(\omega)$', title='FFT Spectrum')
