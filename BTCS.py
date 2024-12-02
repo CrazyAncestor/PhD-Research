@@ -47,8 +47,8 @@ def BTCS_2d(U, D, dx, dy, dt):
     U_new_new (numpy array): Updated concentration profile after nsteps
     """
     Nx, Ny = U.shape  # Number of grid points in x and y directions
-    alpha_x = D * dt /2 / dx**2
-    alpha_y = D * dt /2 / dy**2
+    alpha_x = D * dt /2. / dx**2
+    alpha_y = D * dt /2. / dy**2
 
     # Build the coefficient matrix for the system of equations for x-direction
     Ax = (1 + 2 * alpha_x) * np.eye(Nx-2)  # Diagonal
@@ -66,7 +66,7 @@ def BTCS_2d(U, D, dx, dy, dt):
     for i in range(Nx-2):
         us = np.copy(U0[i, :])
         for j in range(Ny-2):
-            us[j] = alpha_y * U[i+1,j] + (1 - 2 * alpha_y) * U[i+1,j+1] + alpha_y * U[i+1,j+2]
+            us[j] = alpha_y * U[i+2,j+1] + (1 - 2 * alpha_y) * U[i+1,j+1] + alpha_y * U[i,j+1]
         u_new = np.linalg.solve(Ax, us)
         U1.append(u_new)
     U1 = np.array(U1)
@@ -78,7 +78,7 @@ def BTCS_2d(U, D, dx, dy, dt):
     for j in range(Ny-2):
         us = np.copy(U1[:, j])
         for i in range(Nx-2):
-            us[i] = alpha_x * U1_ext[i,j+1] + (1 - 2 * alpha_x) * U1_ext[i+1,j+1] + alpha_y * U1_ext[i+2,j+1]
+            us[i] = alpha_x * U1_ext[i+1,j+2] + (1 - 2 * alpha_x) * U1_ext[i+1,j+1] + alpha_y * U1_ext[i+1,j]
         u_new = np.linalg.solve(Ay, us)
         U2.append(u_new)
     U2 = np.array(U2).T  # Transpose back to 2D array
@@ -114,11 +114,11 @@ def analytical_solution(x, y, t, D, Lx, Ly, eps):
 
 # Parameters
 Lx, Ly = 10.0, 10.0   # Domain size in x and y directions
-T = 2.0               # Total time
+T = 1.0               # Total time
 D = 1               # Diffusion coefficient
-Nx, Ny = 200, 200     # Grid points in x and y directions
+Nx, Ny = 100, 100     # Grid points in x and y directions
 dx, dy = Lx/(Nx-1), Ly/(Ny-1)  # Grid spacing
-dt = 0.001             # Time step
+dt = 0.01             # Time step
 nsteps = int(T / dt)  # Number of time steps
 eps = 0.5             # Size of initial distribution
 
