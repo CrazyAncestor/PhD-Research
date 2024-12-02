@@ -31,8 +31,10 @@ for i in range(N_x):
     for j in range(N_y):
         p[i, j] = np.exp(-0.5 * ((x_vals[i]-x0)**2 + (y_vals[j]-y0)**2)/eps**2)
 
+
 # Function to evolve the Fokker-Planck equation
-def evolve_fokker_planck(p, dt, dx, dy, gamma, D):
+#   Forward time central space scheme (FTCS)
+def evolve_fokker_planck_FTCS(p, dt, dx, dy, gamma, D):
     # Temporary array for the next time step
     p_new = np.copy(p)
     mid = N_x // 2
@@ -57,12 +59,14 @@ def evolve_fokker_planck(p, dt, dx, dy, gamma, D):
     
     return p_new
 
+
+
 # Time evolution of the Fokker-Planck equation and storing the data
 p_t = np.copy(p)
 
 # Create the plot for each time step with a progress bar
 for t in tqdm(range(time_steps), desc="Simulating", unit="step"):
-    p_t = evolve_fokker_planck(p_t, dt, dx, dy, gamma, D)
+    p_t = evolve_fokker_planck_FTCS(p_t, dt, dx, dy, gamma, D)
     
     if t % 10 == 0:  # Save a snapshot every 10 steps
         
