@@ -32,7 +32,7 @@ def FTCS_2d(U, D, dx, dy, dt):
     U_new_new[:, -1] = U_new_new[:, -2]  # No change at the top boundary
 
     return U_new_new  # Yield the updated concentration field at each time step
-def BTCS_2d(U, D, dx, dy, dt):
+def BTCS_2d(U, D, gamma, dx, dy, dt):
     """
     Solve the 2D diffusion equation using the BTCS method (implicit).
     
@@ -50,6 +50,9 @@ def BTCS_2d(U, D, dx, dy, dt):
     alpha_x = D * dt /2. / dx**2
     alpha_y = D * dt /2. / dy**2
 
+    beta_x = gamma * dt/2 / dx
+    beta_y = gamma * dt/2 / dy
+
     # Build the coefficient matrix for the system of equations for x-direction
     Ax = (1 + 2 * alpha_x) * np.eye(Nx-2)  # Diagonal
     Ax += -alpha_x * np.diag(np.ones(Nx-3), 1)  # Upper diagonal
@@ -60,13 +63,21 @@ def BTCS_2d(U, D, dx, dy, dt):
     Ay += -alpha_y * np.diag(np.ones(Ny-3), 1)  # Upper diagonal
     Ay += -alpha_y * np.diag(np.ones(Ny-3), -1)  # Lower diagonal
 
+    for i in range(Nx-2):
+        if i>0:
+            Ax[i,i-1] += beta_x * dx * (i-1-Nx/2)
+            Ay[i,i-1] += beta_y * dy * (i-1-Ny/2)
+        if i+1<Nx-2:
+            Ax[i,i+1] += -beta_x * dx * (i+1-Nx/2)
+            Ay[i,i+1] += -beta_y * dx * (i+1-Ny/2)
+
     # Solve the linear system for each row (x-direction)
     U0 = np.copy(U[1:-1, 1:-1])
     U1 = []
     for i in range(Nx-2):
         us = np.copy(U0[i, :])
         for j in range(Ny-2):
-            us[j] = alpha_y * U[i+2,j+1] + (1 - 2 * alpha_y) * U[i+1,j+1] + alpha_y * U[i,j+1]
+            us[j] = U[i+1,j+1]#alpha_y * U[i+2,j+1] + (1 - 2 * alpha_y) * U[i+1,j+1] + alpha_y * U[i,j+1]
         u_new = np.linalg.solve(Ax, us)
         U1.append(u_new)
     U1 = np.array(U1)
@@ -78,7 +89,7 @@ def BTCS_2d(U, D, dx, dy, dt):
     for j in range(Ny-2):
         us = np.copy(U1[:, j])
         for i in range(Nx-2):
-            us[i] = alpha_x * U1_ext[i+1,j+2] + (1 - 2 * alpha_x) * U1_ext[i+1,j+1] + alpha_y * U1_ext[i+1,j]
+            us[i] = U1_ext[i+1,j+1]#alpha_x * U1_ext[i+1,j+2] + (1 - 2 * alpha_x) * U1_ext[i+1,j+1] + alpha_y * U1_ext[i+1,j]
         u_new = np.linalg.solve(Ay, us)
         U2.append(u_new)
     U2 = np.array(U2).T  # Transpose back to 2D array
@@ -114,9 +125,11 @@ def analytical_solution(x, y, t, D, Lx, Ly, eps):
 
 # Parameters
 Lx, Ly = 10.0, 10.0   # Domain size in x and y directions
-T = 1.0               # Total time
+X0, Y0 = 2.0, 2.0
+T = 10.0               # Total time
 D = 1               # Diffusion coefficient
-Nx, Ny = 100, 100     # Grid points in x and y directions
+gamma = 1
+Nx, Ny = 50, 50     # Grid points in x and y directions
 dx, dy = Lx/(Nx-1), Ly/(Ny-1)  # Grid spacing
 dt = 0.01             # Time step
 nsteps = int(T / dt)  # Number of time steps
@@ -126,7 +139,7 @@ eps = 0.5             # Size of initial distribution
 x = np.linspace(0, Lx, Nx)
 y = np.linspace(0, Ly, Ny)
 X, Y = np.meshgrid(x, y)
-u_init = np.exp(-0.5 * ((X - Lx/2)**2 + (Y - Ly/2)**2) / eps**2)  # Gaussian distribution
+u_init = np.exp(-0.5 * ((X - Lx/2 - X0)**2 + (Y - Ly/2 - Y0)**2) / eps**2)  # Gaussian distribution
 u_t = np.copy(u_init)
 
 # Create directory for saving snapshots
@@ -135,7 +148,7 @@ os.makedirs(output_dir, exist_ok=True)  # Create directory for simulation result
 
 # Create the plot for each time step with a progress bar
 for t in tqdm(range(nsteps), desc="Simulating", unit="step"):
-    u_t = BTCS_2d(u_t, D, dx, dy, dt)
+    u_t = BTCS_2d(u_t, D, gamma, dx, dy, dt)
     
     # Save a snapshot of the solution every 10 steps
     if t % 10 == 0:  
