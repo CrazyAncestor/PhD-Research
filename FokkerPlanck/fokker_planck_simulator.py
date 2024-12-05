@@ -4,7 +4,7 @@ import os
 from tqdm import tqdm
 
 class FokkerPlanckSimulator:
-    def __init__(self, t_start, t_end, dt, gamma, nu, n_th, eps2, x, y, x0, y0, output_dir, ProbDensMap, solver, init_cond):
+    def __init__(self, t_start, t_end, dt, x, y, phys_parameter, init_cond, output_dir, ProbDensMap, solver):
         # Simulation time settings
         self.t_start = t_start
         self.t_end = t_end
@@ -12,25 +12,16 @@ class FokkerPlanckSimulator:
         self.nsteps = int((t_end - t_start) / dt)
         self.t_vals = np.linspace(t_start, t_end, self.nsteps)
 
-        # Parameters for the system
-        self.gamma = gamma
-        self.nu = nu
-        self.n_th = n_th
-        self.eps2 = eps2
-
         # Grid for 2D probability distribution
         self.x = x
         self.y = y
-        self.x0 = x0
-        self.y0 = y0
 
         # Initial conditions and solution storage
+        self.phys_parameter = phys_parameter
         self.init_cond = init_cond
-        sol0 = init_cond(x0, y0, eps2)
 
-        self.sol0 = sol0
         self.solution = np.zeros((self.nsteps, 4))
-        self.solution[0] = sol0
+        self.solution[0] = init_cond
 
         # Functions for simulation
         self.ProbDensMap = ProbDensMap
@@ -45,21 +36,21 @@ class FokkerPlanckSimulator:
         self.centroid_y = []
 
         # Precompute min and max values for consistent color scaling in plots
-        self.u_init = ProbDensMap(x, y, sol0)
+        self.u_init = ProbDensMap(x, y, init_cond)
         self.vmin, self.vmax = np.min(self.u_init), np.max(self.u_init)
 
     def run_simulation(self):
         # Time integration using RK4 with progress bar
         for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
-            self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.gamma, self.nu, self.n_th)
+            self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
 
             # Compute the analytical solution at the current time step
-            u_analytic = self.ProbDensMap(self.x, self.y, self.solution[t])
+            ProbDens = self.ProbDensMap(self.x, self.y, self.solution[t])
 
             # Calculate the center of the probability distribution
-            weighted_sum_x = np.sum(self.x[:, None] * u_analytic)  # Sum over x for each y
-            weighted_sum_y = np.sum(self.y[None, :] * u_analytic)  # Sum over y for each x
-            total_weight = np.sum(u_analytic)  # Total sum (normalization factor)
+            weighted_sum_x = np.sum(self.x[:, None] * ProbDens)  # Sum over x for each y
+            weighted_sum_y = np.sum(self.y[None, :] * ProbDens)  # Sum over y for each x
+            total_weight = np.sum(ProbDens)  # Total sum (normalization factor)
 
             # Centroid coordinates
             center_x = weighted_sum_x / total_weight
@@ -71,7 +62,7 @@ class FokkerPlanckSimulator:
 
             # Save a snapshot every 10 steps
             if t % 10 == 0:
-                self.save_snapshot(t, u_analytic)
+                self.save_snapshot(t, ProbDens)
 
         # Plot the path of the center of the distribution at the end of the simulation
         self.plot_center_path()
@@ -79,10 +70,10 @@ class FokkerPlanckSimulator:
         # Plot the evolution of a(t), b(t), c(t), d(t) over time
         self.plot_parameter_evolution()
 
-    def save_snapshot(self, t, u_analytic):
+    def save_snapshot(self, t, ProbDens):
         # Create a plot for the analytical solution
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
-        im = ax.imshow(u_analytic.T, extent=[self.x[0], self.x[-1], self.y[0], self.y[-1]], origin='lower', aspect='auto', cmap='hot', vmin=self.vmin, vmax=self.vmax)
+        im = ax.imshow(ProbDens.T, extent=[self.x[0], self.x[-1], self.y[0], self.y[-1]], origin='lower', aspect='auto', cmap='hot', vmin=self.vmin, vmax=self.vmax)
         ax.set_title(f"Analytical Solution at Time = {t * self.dt:.2f}")
         ax.set_xlabel(r'Re{$\alpha$} (x)')
         ax.set_ylabel(r'Im{$\alpha$} (y)')
