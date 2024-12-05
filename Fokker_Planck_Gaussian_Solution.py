@@ -58,19 +58,19 @@ y = np.linspace(-Lx, Ly, Ny)
 X, Y = np.meshgrid(x, y)
 
 # Analytical solution function
-def analytical_solution(x, y, solution):
+def ProbDensMap(x, y, solution):
     a, b, c, d = solution
     u_analytic = np.exp(a + b * X + c * Y + d * (X**2 + Y**2))
     return u_analytic
 
 # Prepare array to store solutions
-u_init = analytical_solution(x, y, y0)
+u_init = ProbDensMap(x, y, y0)
 
 # Precompute the min and max values for consistent color scaling
 vmin, vmax = np.min(u_init), np.max(u_init)
 
 # Create directory for saving snapshots
-output_dir = "finite_ele_result"
+output_dir = "fokker-planck-sim-result"
 os.makedirs(output_dir, exist_ok=True)  # Create directory for simulation result snapshots
 
 # Initialize a list to store the center coordinates
@@ -82,7 +82,7 @@ for t in tqdm(range(1, nsteps), desc="Simulating", unit="step"):
     solution[t] = rk4_step(t_vals[t-1], solution[t-1], h, gamma, nu, n_th)
 
     # Compute the analytical solution at the current time step
-    u_analytic = analytical_solution(x, y, solution[t])
+    u_analytic = ProbDensMap(x, y, solution[t])
 
     # Calculate the center of the probability distribution
     weighted_sum_x = np.sum(x[:, None] * u_analytic)  # Sum over x for each y
