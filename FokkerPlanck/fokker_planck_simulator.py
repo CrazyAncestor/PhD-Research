@@ -20,7 +20,7 @@ class FokkerPlanckSimulator:
         self.phys_parameter = phys_parameter
         self.init_cond = init_cond
 
-        self.solution = np.zeros((self.nsteps, 4))
+        self.solution = np.zeros((self.nsteps, len(init_cond)))
         self.solution[0] = init_cond
 
         # Functions for simulation
@@ -29,46 +29,54 @@ class FokkerPlanckSimulator:
 
         # Prepare output directory
         self.output_dir = output_dir
-        os.makedirs(output_dir, exist_ok=True)
 
         # Initialize list to store centroid coordinates
         self.centroid_x = []
         self.centroid_y = []
 
-        # Precompute min and max values for consistent color scaling in plots
-        self.u_init = ProbDensMap(x, y, init_cond)
-        self.vmin, self.vmax = np.min(self.u_init), np.max(self.u_init)
 
-    def run_simulation(self):
-        # Time integration using RK4 with progress bar
-        for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
-            self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
+    def run_simulation(self, pure_parameter = False):
+        if pure_parameter:
+            for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
+                self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
+            # Plot the evolution of a(t), b(t), c(t), d(t) over time
+            self.plot_parameter_evolution()
+        else:
+            os.makedirs(self.output_dir, exist_ok=True)
 
-            # Compute the analytical solution at the current time step
-            ProbDens = self.ProbDensMap(self.x, self.y, self.solution[t])
+            # Precompute min and max values for consistent color scaling in plots
+            self.u_init = ProbDensMap(x, y, init_cond)
+            self.vmin, self.vmax = np.min(self.u_init), np.max(self.u_init)
+            
+            # Time integration using RK4 with progress bar
+            for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
+                self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
 
-            # Calculate the center of the probability distribution
-            weighted_sum_x = np.sum(self.x[:, None] * ProbDens)  # Sum over x for each y
-            weighted_sum_y = np.sum(self.y[None, :] * ProbDens)  # Sum over y for each x
-            total_weight = np.sum(ProbDens)  # Total sum (normalization factor)
+                # Compute the analytical solution at the current time step
+                ProbDens = self.ProbDensMap(self.x, self.y, self.solution[t])
 
-            # Centroid coordinates
-            center_x = weighted_sum_x / total_weight
-            center_y = weighted_sum_y / total_weight
+                # Calculate the center of the probability distribution
+                weighted_sum_x = np.sum(self.x[:, None] * ProbDens)  # Sum over x for each y
+                weighted_sum_y = np.sum(self.y[None, :] * ProbDens)  # Sum over y for each x
+                total_weight = np.sum(ProbDens)  # Total sum (normalization factor)
 
-            # Store the centroid coordinates
-            self.centroid_x.append(center_x)
-            self.centroid_y.append(center_y)
+                # Centroid coordinates
+                center_x = weighted_sum_x / total_weight
+                center_y = weighted_sum_y / total_weight
 
-            # Save a snapshot every 10 steps
-            if t % 10 == 0:
-                self.save_snapshot(t, ProbDens)
+                # Store the centroid coordinates
+                self.centroid_x.append(center_x)
+                self.centroid_y.append(center_y)
 
-        # Plot the path of the center of the distribution at the end of the simulation
-        self.plot_center_path()
+                # Save a snapshot every 10 steps
+                if t % 10 == 0:
+                    self.save_snapshot(t, ProbDens)
 
-        # Plot the evolution of a(t), b(t), c(t), d(t) over time
-        self.plot_parameter_evolution()
+            # Plot the path of the center of the distribution at the end of the simulation
+            self.plot_center_path()
+
+            # Plot the evolution of a(t), b(t), c(t), d(t) over time
+            self.plot_parameter_evolution()
 
     def save_snapshot(self, t, ProbDens):
         # Create a plot for the analytical solution

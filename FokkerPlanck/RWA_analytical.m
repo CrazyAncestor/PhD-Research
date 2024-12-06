@@ -1,5 +1,5 @@
 %Random function for example
-syms x y u v a b c d e f h k l o p q r s w gamma eta nu omega g m n;
+syms x y u v a b c d e f h k l o p q r s w gamma eta nu omega g m_th n_th;
 P(x,y,u,v) =  exp(a + b * x + c * y + d * u + e * v + f * x^2 + h * y^2 + k * u^2 + l * v^2 + o * x * y + p * u * v + q * x * u + r * y * u + s * x * v + w * y * v);
 
 function fx = fst_deriv(func,var)
@@ -36,18 +36,18 @@ function [Px,Py,Pu,Pv,Pxx,Pyy,Puu,Pvv] = fst_snd_derivs(P,x,y,u,v)
 end
 
 %   Extract each components in the time derivative
-function [PT_const, PTx, PTy, PTu, PTv, PTxx, PTyy, PTuu, PTvv, PTxu, PTyu, PTxv, PTyv, PTxy, PTuv] = extract_coef(PT,x,y,u,v) 
+function [PT_const, PTx, PTy, PTu, PTv, PTxx, PTyy, PTuu, PTvv, PTxy, PTuv, PTxu, PTyu, PTxv, PTyv] = extract_coef(PT,x,y,u,v) 
     PTxx = snd_deriv(PT,x);
     PTyy = snd_deriv(PT,y);
     PTuu = snd_deriv(PT,u);
     PTvv = snd_deriv(PT,v);
     
+    PTxy = diff_deriv(PT,x,y);
+    PTuv = diff_deriv(PT,u,v);
     PTxu = diff_deriv(PT,x,u);
     PTyu = diff_deriv(PT,y,u);
     PTxv = diff_deriv(PT,x,v);
     PTyv = diff_deriv(PT,y,v);
-    PTxy = diff_deriv(PT,x,y);
-    PTuv = diff_deriv(PT,u,v);
     
     PTx = simplify(fst_deriv(PT,x) - (PTxx * x + PTxu * u + PTxv * v + PTxy * y));
     PTy = simplify(fst_deriv(PT,y) - (PTyy * y + PTyu * u + PTyv * v + PTxy * x));
@@ -69,8 +69,8 @@ end
 
 PT1 = (gamma + eta) + (gamma/2 * x - nu * y - g * v) * Px + (gamma/2 * y + nu * x + g * u) * Py;
 PT2 = (eta/2 * u - nu * v - g * y) * Pu + (eta/2 * v + nu * u + g * x) * Pv;
-PT3 = gamma * n / 4 * (Pxx + Pyy) + eta * m / 4 * (Puu + Pvv);
+PT3 = gamma * n_th / 4 * (Pxx + Pyy) + eta * m_th / 4 * (Puu + Pvv);
 
 PT = simplify(PT1 + PT2 + PT3);
 
-[PT_const, PTx, PTy, PTu, PTv, PTxx, PTyy, PTuu, PTvv, PTxu, PTyu, PTxv, PTyv, PTxy, PTuv] = extract_coef(PT,x,y,u,v)
+[PT_const, PTx, PTy, PTu, PTv, PTxx, PTyy, PTuu, PTvv, PTxy, PTuv, PTxu, PTyu, PTxv, PTyv] = extract_coef(PT,x,y,u,v)
