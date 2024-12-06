@@ -1,4 +1,3 @@
-%Random function for example
 syms x y u v a b c d e f h k l o p q r s w gamma eta nu omega g m_th n_th;
 P(x,y,u,v) =  exp(a + b * x + c * y + d * u + e * v + f * x^2 + h * y^2 + k * u^2 + l * v^2 + o * x * y + p * u * v + q * x * u + r * y * u + s * x * v + w * y * v);
 

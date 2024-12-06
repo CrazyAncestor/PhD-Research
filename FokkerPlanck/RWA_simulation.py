@@ -45,21 +45,27 @@ def system(t, y, phys_parameter):
 # Analytical solution function
 def ProbDensMap(x, y, solution):
     X, Y = np.meshgrid(x, y)
-    a, b, c, d = solution
-    ProbDens = np.exp(a + b * X + c * Y + d * (X**2 + Y**2))
+    a, b, c, d, e, f, h, k, l, o, p, q, r, s, w = solution
+    A = d + q * X + r * Y
+    B = e + s * X + w * Y
+    H = l - p**2/4/k
+    U = B - A*p/2/k
+    Prob0 = np.exp(f*X**2 + o*X*Y + b*X + h*Y**2 + c*Y + a)
+    Prob_var = np.pi/ (np.abs(k)*np.abs(l-p**2/4/k))**0.5 *np.exp(-U**2/4/H)*np.exp(-A**2/4/k)
+    ProbDens = Prob0 * Prob_var
     return ProbDens
 
 # Initialize simulation parameters
 #   Physical Parameter
-gamma = 0.1
+gamma = 0.5
 eta = 0.1
-nu = 3
-omega = 3
-g = 1/3
+nu = 2 * np.pi
+omega = 2 * np.pi
+g =  2 * np.pi * 0.1
 n_th = 1
 m_th = 1
 
-eps2 = 0.25
+eps2 = 0.1
 x0 = 2
 y0 = 2
 
@@ -91,14 +97,14 @@ init_cond = np.array([a0, b0, c0, d0, e0, f0, h0, k0, l0, o0, p0, q0, r0, s0, w0
 #   Time parameter
 t_start = 0
 t_end = 10
-dt= 0.01
+dt= 0.001
 
 #   Map Parameter
-x = np.linspace(-10, 10, 100)
-y = np.linspace(-10, 10, 100)
+x = np.linspace(-3, 3, 200)
+y = np.linspace(-3, 3, 200)
 
 output_dir = "fokker-planck-sim-result"
 
 # Instantiate and run the simulation
 simulator = FokkerPlanckSimulator(t_start, t_end, dt, x, y, phys_parameter, init_cond, output_dir, ProbDensMap, rk4_step)
-simulator.run_simulation(pure_parameter = True)
+simulator.run_simulation(pure_parameter = False)

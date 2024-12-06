@@ -45,14 +45,14 @@ class FokkerPlanckSimulator:
             os.makedirs(self.output_dir, exist_ok=True)
 
             # Precompute min and max values for consistent color scaling in plots
-            self.u_init = ProbDensMap(x, y, init_cond)
+            self.u_init = self.ProbDensMap(self.x, self.y, self.init_cond)
             self.vmin, self.vmax = np.min(self.u_init), np.max(self.u_init)
             
             # Time integration using RK4 with progress bar
             for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
                 self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
 
-                # Compute the analytical solution at the current time step
+                # Compute the Probability Distribution at the current time step
                 ProbDens = self.ProbDensMap(self.x, self.y, self.solution[t])
 
                 # Calculate the center of the probability distribution
@@ -79,10 +79,10 @@ class FokkerPlanckSimulator:
             self.plot_parameter_evolution()
 
     def save_snapshot(self, t, ProbDens):
-        # Create a plot for the analytical solution
+        # Create a plot for the Probability Distribution
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
         im = ax.imshow(ProbDens.T, extent=[self.x[0], self.x[-1], self.y[0], self.y[-1]], origin='lower', aspect='auto', cmap='hot', vmin=self.vmin, vmax=self.vmax)
-        ax.set_title(f"Analytical Solution at Time = {t * self.dt:.2f}")
+        ax.set_title(f"Probability Distribution on Coherent State Plane at Time = {t * self.dt:.2f}")
         ax.set_xlabel(r'Re{$\alpha$} (x)')
         ax.set_ylabel(r'Im{$\alpha$} (y)')
         cbar = plt.colorbar(im, ax=ax)
@@ -109,20 +109,11 @@ class FokkerPlanckSimulator:
         plt.show()
 
     def plot_parameter_evolution(self):
-        # Plot the evolution of a(t), b(t), c(t), d(t) versus time in subplots
+        # Plot the evolution of b(t), c(t), d(t), e(t) versus time in subplots
         plt.figure(figsize=(10, 8))
 
-        # Subplot for a(t)
-        plt.subplot(2, 2, 1)
-        plt.plot(self.t_vals, self.solution[:, 0], label="a(t)", color='b')
-        plt.xlabel("Time (t)")
-        plt.ylabel("a(t)")
-        plt.title("Evolution of a(t) over Time")
-        plt.legend()
-        plt.grid(True)
-
         # Subplot for b(t)
-        plt.subplot(2, 2, 2)
+        plt.subplot(2, 2, 1)
         plt.plot(self.t_vals, self.solution[:, 1], label="b(t)", color='g')
         plt.xlabel("Time (t)")
         plt.ylabel("b(t)")
@@ -131,7 +122,7 @@ class FokkerPlanckSimulator:
         plt.grid(True)
 
         # Subplot for c(t)
-        plt.subplot(2, 2, 3)
+        plt.subplot(2, 2, 2)
         plt.plot(self.t_vals, self.solution[:, 2], label="c(t)", color='r')
         plt.xlabel("Time (t)")
         plt.ylabel("c(t)")
@@ -140,11 +131,20 @@ class FokkerPlanckSimulator:
         plt.grid(True)
 
         # Subplot for d(t)
-        plt.subplot(2, 2, 4)
+        plt.subplot(2, 2, 3)
         plt.plot(self.t_vals, self.solution[:, 3], label="d(t)", color='c')
         plt.xlabel("Time (t)")
         plt.ylabel("d(t)")
         plt.title("Evolution of d(t) over Time")
+        plt.legend()
+        plt.grid(True)
+
+        # Subplot for e(t)
+        plt.subplot(2, 2, 4)
+        plt.plot(self.t_vals, self.solution[:, 4], label="e(t)", color='m')  # e(t) is solution[:, 4]
+        plt.xlabel("Time (t)")
+        plt.ylabel("e(t)")
+        plt.title("Evolution of e(t) over Time")
         plt.legend()
         plt.grid(True)
 
@@ -154,3 +154,47 @@ class FokkerPlanckSimulator:
         # Show the plots
         plt.show()
 
+            # Plot the evolution of f(t), h(t), k(t), l(t) in a new figure
+        plt.figure(figsize=(10, 8))
+
+        # Subplot for f(t)
+        plt.subplot(2, 2, 1)
+        plt.plot(self.t_vals, self.solution[:, 5], label="f(t)", color='b')
+        plt.xlabel("Time (t)")
+        plt.ylabel("f(t)")
+        plt.title("Evolution of f(t) over Time")
+        plt.legend()
+        plt.grid(True)
+
+        # Subplot for h(t)
+        plt.subplot(2, 2, 2)
+        plt.plot(self.t_vals, self.solution[:, 6], label="h(t)", color='orange')
+        plt.xlabel("Time (t)")
+        plt.ylabel("h(t)")
+        plt.title("Evolution of h(t) over Time")
+        plt.legend()
+        plt.grid(True)
+
+        # Subplot for k(t)
+        plt.subplot(2, 2, 3)
+        plt.plot(self.t_vals, self.solution[:, 7], label="k(t)", color='purple')
+        plt.xlabel("Time (t)")
+        plt.ylabel("k(t)")
+        plt.title("Evolution of k(t) over Time")
+        plt.legend()
+        plt.grid(True)
+
+        # Subplot for l(t)
+        plt.subplot(2, 2, 4)
+        plt.plot(self.t_vals, self.solution[:, 8], label="l(t)", color='brown')
+        plt.xlabel("Time (t)")
+        plt.ylabel("l(t)")
+        plt.title("Evolution of l(t) over Time")
+        plt.legend()
+        plt.grid(True)
+
+        # Adjust layout to prevent overlap
+        plt.tight_layout()
+
+        # Show the plots for f, h, k, l
+        plt.show()
