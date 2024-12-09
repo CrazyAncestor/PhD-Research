@@ -39,7 +39,6 @@ def system(t, y, phys_parameter):
     s_prime = 2*g*l - 2*f*g + (eta*s)/2 + (gamma*s)/2 - nu*q + nu*w + (eta*m_th*(4*l*s + 2*p*q))/4 + (gamma*n_th*(4*f*s + 2*o*w))/4
     w_prime = (eta*w)/2 - g*p - g*o + (gamma*w)/2 - nu*r - nu*s + (gamma*n_th*(4*h*w + 2*o*s))/4 + (eta*m_th*(2*p*r + 4*l*w))/4
     
-    
     return np.array([a_prime, b_prime, c_prime, d_prime,e_prime, f_prime, h_prime, k_prime,l_prime,o_prime, p_prime, q_prime, r_prime,s_prime,w_prime])
 
 # Analytical solution function
@@ -72,7 +71,8 @@ y0 = 2
 phys_parameter = gamma, nu, n_th
 
 # Initial condition
-a0 = - (x0 * x0 + y0 * y0)/eps2
+Dim = 4
+a0 = - (x0 * x0 + y0 * y0)/eps2 - Dim * np.log( np.sqrt(np.pi * eps2))
 
 b0 = 2 * x0 /eps2
 c0 = 2 * y0 /eps2
@@ -100,8 +100,8 @@ t_end = 10
 dt= 0.001
 
 #   Map Parameter
-x = np.linspace(-3, 3, 200)
-y = np.linspace(-3, 3, 200)
+x = np.linspace(-5, 5, 150)
+y = np.linspace(-5, 5, 150)
 
 output_dir = "fokker-planck-sim-result"
 

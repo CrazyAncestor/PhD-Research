@@ -36,48 +36,87 @@ class FokkerPlanckSimulator:
 
 
     def run_simulation(self, pure_parameter = False):
-        if pure_parameter:
-            for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
-                self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
-            # Plot the evolution of a(t), b(t), c(t), d(t) over time
-            self.plot_parameter_evolution()
-        else:
-            os.makedirs(self.output_dir, exist_ok=True)
 
-            # Precompute min and max values for consistent color scaling in plots
-            self.u_init = self.ProbDensMap(self.x, self.y, self.init_cond)
-            self.vmin, self.vmax = np.min(self.u_init), np.max(self.u_init)
+        os.makedirs(self.output_dir, exist_ok=True)
+
+        # Open a log file to write simulation messages
+        log_filename = os.path.join(self.output_dir, "simulation_log.txt")
+        with open(log_filename, 'w') as log_file:
+            log_file.write(f"Simulation started at {self.t_start} with time steps from {self.t_start} to {self.t_end}.\n")
+
+            if pure_parameter:
+                log_file.write("Running with pure_parameter mode enabled.\n")
+                for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
+                    self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
+                # Plot the evolution of a(t), b(t), c(t), d(t) over time
+                self.plot_parameter_evolution()
+                log_file.write("Simulation completed.\n")
+            else:
+                # Precompute min and max values for consistent color scaling in plots
+                self.u_init = self.ProbDensMap(self.x, self.y, self.init_cond)
+                self.vmin, self.vmax = np.min(self.u_init), np.max(self.u_init)
+
+                log_file.write(f"Initial probability density range: vmin={self.vmin}, vmax={self.vmax}.\n")
+                
+                # Time integration using RK4 with progress bar
+                for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
+                    self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
+
+                    # Compute the Probability Distribution at the current time step
+                    ProbDens = self.ProbDensMap(self.x, self.y, self.solution[t])
+
+                    # Calculate the center of the probability distribution
+                    weighted_sum_x = np.sum(self.x[:, None] * ProbDens)  # Sum over x for each y
+                    weighted_sum_y = np.sum(self.y[None, :] * ProbDens)  # Sum over y for each x
+                    total_weight = np.sum(ProbDens)  # Total sum (normalization factor)
+
+                    # Centroid coordinates
+                    center_x = weighted_sum_x / total_weight
+                    center_y = weighted_sum_y / total_weight
+
+                    # Store the centroid coordinates
+                    self.centroid_x.append(center_x)
+                    self.centroid_y.append(center_y)
+
+                    # Inside your run_simulation method (where the centroid and ProbDensSum are calculated)
+                    ProbDensSum = self.volume_integration(self.x, self.y, ProbDens)
+
+                    # Log the information and check for deviation from 1.0
+                    self.log_warning_message(t, ProbDensSum, center_x, center_y, log_file)
+
+                    # Save a snapshot every 10 steps
+                    if t % 10 == 0:
+                        self.save_snapshot(t, ProbDens)
+                        log_file.write(f"Snapshot saved for time step {t}.\n")
+
+                # Plot the path of the center of the distribution at the end of the simulation
+                self.plot_center_path()
+                log_file.write("Path of the center plot generated.\n")
+
+                # Plot the evolution of a(t), b(t), c(t), d(t) over time
+                self.plot_parameter_evolution()
+                log_file.write("Parameter evolution plots generated.\n")
             
-            # Time integration using RK4 with progress bar
-            for t in tqdm(range(1, self.nsteps), desc="Simulating", unit="step"):
-                self.solution[t] = self.solver(self.t_vals[t-1], self.solution[t-1], self.dt, self.phys_parameter)
+            log_file.write(f"Simulation ended at {self.t_end}.\n")
+            log_file.write("Simulation completed successfully.\n")
 
-                # Compute the Probability Distribution at the current time step
-                ProbDens = self.ProbDensMap(self.x, self.y, self.solution[t])
+    def volume_integration(self, x, y, Dens):
+        dx = x[1] - x[0]
+        dy = y[1] - y[0]
+        Sum = np.sum(Dens) * np.abs(dx) * np.abs(dy)
+        return Sum
+    
+    def log_warning_message(self, t, ProbDensSum, center_x, center_y, log_file):
+        # Calculate the difference from 1.0
+        diff_from_one = abs(ProbDensSum - 1.0)
 
-                # Calculate the center of the probability distribution
-                weighted_sum_x = np.sum(self.x[:, None] * ProbDens)  # Sum over x for each y
-                weighted_sum_y = np.sum(self.y[None, :] * ProbDens)  # Sum over y for each x
-                total_weight = np.sum(ProbDens)  # Total sum (normalization factor)
+        # Check if the difference is more than 1% away from 1.0
+        if diff_from_one > 0.01:
+            log_file.write(f"WARNING: Step {t}, Time = {self.t_vals[t]:.2f}, ProbDensSum = {ProbDensSum:.4f}, Center = ({center_x:.4f}, {center_y:.4f})\nProbability summation on the plane has deviation larger than 1.0%! Simulation Box may be too small.\n")
+        else:
+            log_file.write(f"Step {t}, Time = {self.t_vals[t]:.2f}, ProbDensSum = {ProbDensSum:.4f}, Center = ({center_x:.4f}, {center_y:.4f})\n")
 
-                # Centroid coordinates
-                center_x = weighted_sum_x / total_weight
-                center_y = weighted_sum_y / total_weight
-
-                # Store the centroid coordinates
-                self.centroid_x.append(center_x)
-                self.centroid_y.append(center_y)
-
-                # Save a snapshot every 10 steps
-                if t % 10 == 0:
-                    self.save_snapshot(t, ProbDens)
-
-            # Plot the path of the center of the distribution at the end of the simulation
-            self.plot_center_path()
-
-            # Plot the evolution of a(t), b(t), c(t), d(t) over time
-            self.plot_parameter_evolution()
-
+    
     def save_snapshot(self, t, ProbDens):
         # Create a plot for the Probability Distribution
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
